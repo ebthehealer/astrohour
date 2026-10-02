@@ -23,6 +23,16 @@
     "autostart:allow-disable",
     "autostart:allow-is-enabled",
     "positioner:allow-move-window",
-    "positioner:allow-set-tray-icon-state"
+    "positioner:allow-set-tray-icon-state",
+    "sql:allow-load",
+    "sql:allow-execute",
+    "sql:allow-select",
+    "sql:allow-close",
+    "stronghold:allow-initialize",
+    "stronghold:allow-load-client",
+    "stronghold:allow-create-client",
+    "stronghold:allow-get-store-record",
+    "stronghold:allow-execute-procedure",
+    "stronghold:allow-destroy"
   ]
 }

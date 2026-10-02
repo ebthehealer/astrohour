@@ -215,3 +215,89 @@ pub fn get_display_mode(state: State<SharedState>) -> String {
         DisplayMode::Full     => "Full".into(),
     }
 }
+
+// ── Phase 2: Notes commands ─────────────────────────────────────────────────────────
+//
+// Notes are stored/queried via tauri-plugin-sql from the frontend.
+// These commands are thin helpers for operations that need Rust-side
+// logic (e.g. planet_key generation from a date + hour index).
+
+/// Generate a planet_key string for a given date and hour index.
+/// Format: "YYYY-MM-DD:N"
+/// The frontend uses this to build keys before calling the SQL plugin directly.
+#[tauri::command]
+pub fn make_planet_key(date: String, hour_index: usize) -> Result<String, String> {
+    // Validate date format
+    NaiveDate::parse_from_str(&date, "%Y-%m-%d")
+        .map_err(|e| format!("invalid date: {e}"))?;
+    if hour_index > 23 {
+        return Err(format!("hour_index {hour_index} out of range (0-23)"));
+    }
+    Ok(format!("{date}:{hour_index}"))
+}
+
+/// Return today's date string in YYYY-MM-DD (UTC).
+/// Convenience for the frontend so it doesn't have to format dates itself.
+#[tauri::command]
+pub fn today_string() -> String {
+    Utc::now().format("%Y-%m-%d").to_string()
+}
+
+// ── Phase 2: License commands ───────────────────────────────────────────────────────
+
+use crate::license::{validate_key, LicenseStatus, SharedLicense};
+
+/// Return the current license status for the frontend.
+/// Called on startup and after key entry.
+#[tauri::command]
+pub fn get_license_status(license: State<SharedLicense>) -> LicenseStatus {
+    license.lock().unwrap().clone()
+}
+
+/// Validate and activate a license key.
+///
+/// On success:
+///   - Updates SharedLicense state to Active
+///   - The frontend is responsible for persisting the raw key via
+///     `@tauri-apps/plugin-stronghold` (JS side) and writing the hash
+///     to SQLite.
+///
+/// Returns `Ok(key_hash)` on success, `Err(message)` on failure.
+#[tauri::command]
+pub fn activate_license(
+    license: State<SharedLicense>,
+    raw_key: String,
+) -> Result<String, String> {
+    let key_hash = validate_key(&raw_key).map_err(|e| e.to_string())?;
+    let activated_at = Utc::now().to_rfc3339();
+    *license.lock().unwrap() = LicenseStatus::Active {
+        key_hash: key_hash.clone(),
+        activated_at,
+    };
+    Ok(key_hash)
+}
+
+/// Deactivate the current license (for testing / support).
+#[tauri::command]
+pub fn deactivate_license(license: State<SharedLicense>) {
+    *license.lock().unwrap() = LicenseStatus::None;
+}
+
+/// Load license status from SQLite + stronghold on startup.
+/// Called by the frontend after DB is ready. Accepts the stored key_hash
+/// and activated_at from the DB row; the raw key is held in stronghold
+/// on the JS side.
+#[tauri::command]
+pub fn restore_license(
+    license: State<SharedLicense>,
+    key_hash: Option<String>,
+    activated_at: Option<String>,
+) {
+    let status = match (key_hash, activated_at) {
+        (Some(hash), Some(at)) if !hash.is_empty() => {
+            LicenseStatus::Active { key_hash: hash, activated_at: at }
+        }
+        _ => LicenseStatus::None,
+    };
+    *license.lock().unwrap() = status;
+}

@@ -9,11 +9,26 @@
   } from '$lib/api';
   import FirstRun from '$lib/FirstRun.svelte';
   import Settings from '$lib/Settings.svelte';
+  import Notes from '$lib/Notes.svelte';
+  import License from '$lib/License.svelte';
+  import { makePlanetKey, todayString, getLicenseStatus, type LicenseStatus } from '$lib/api';
 
   // ── App-level state
   let ready = false;          // prefs loaded
   let locationSet = false;    // has a real location (not fallback default)
   let showSettings = false;
+  let showLicense  = false;
+
+  // Notes overlay state
+  let notesKey:  string | null = null;  // planet_key being edited
+  let notesName: string | null = null;  // human label for the overlay header
+
+  // License status (refreshed on mount + after activation)
+  let licenseStatus: LicenseStatus = { status: 'none' };
+  $: isPremium = licenseStatus.status === 'active';
+
+  // Time-travel date (null = today)
+  let travelDate: string | null = null;
 
   // Astronomical data
   let schedule: DaySchedule | null = null;
@@ -43,6 +58,8 @@
     if (locationSet) {
       await refresh();
     }
+    // Load license status
+    licenseStatus = await getLicenseStatus();
     // Listen for 30-second backend tick
     unlisten = await listen('astro:tick', refresh);
     tickInterval = setInterval(updateMins, 30_000);
@@ -65,11 +82,40 @@
   // ── Data refresh
   async function refresh() {
     [schedule, currentHour, moon] = await Promise.all([
-      getDaySchedule(),
+      getDaySchedule(travelDate ?? undefined),
       getCurrentHour(),
       getMoonPhase(),
     ]);
     updateMins();
+  }
+
+  // ── Notes
+  async function openNotes(hourIndex: number, planetName: string) {
+    if (!isPremium) { showLicense = true; return; }
+    const today = await todayString();
+    const date  = travelDate ?? today;
+    notesKey  = await makePlanetKey(date, hourIndex);
+    notesName = `${planetName} Hour`;
+  }
+
+  // ── Time travel (premium only)
+  function prevDay() {
+    if (!isPremium) { showLicense = true; return; }
+    const base = travelDate ? new Date(travelDate) : new Date();
+    base.setDate(base.getDate() - 1);
+    travelDate = base.toISOString().slice(0, 10);
+    refresh();
+  }
+  function nextDay() {
+    if (!isPremium) { showLicense = true; return; }
+    const base = travelDate ? new Date(travelDate) : new Date();
+    base.setDate(base.getDate() + 1);
+    travelDate = base.toISOString().slice(0, 10);
+    refresh();
+  }
+  function resetToToday() {
+    travelDate = null;
+    refresh();
   }
 
   function updateMins() {
@@ -93,6 +139,12 @@
     await refresh();
   }
 
+  // ── License activated callback
+  async function onLicenseActivated() {
+    licenseStatus = await getLicenseStatus();
+    showLicense = false;
+  }
+
   // ── Derived display values
   $: dayName = new Date().toLocaleDateString([], { weekday: 'long' });
   $: sunrise = schedule ? formatTime(schedule.sunrise) : '--:--';
@@ -106,6 +158,19 @@
 
 {:else if !locationSet}
   <FirstRun on:done={onFirstRunDone} />
+
+{:else if notesKey && notesName}
+  <Notes
+    planetKey={notesKey}
+    planetName={notesName}
+    onClose={() => { notesKey = null; notesName = null; }}
+  />
+
+{:else if showLicense}
+  <License
+    onClose={() => showLicense = false}
+    onActivated={onLicenseActivated}
+  />
 
 {:else if showSettings}
   <Settings
@@ -154,9 +219,24 @@
         </div>
       </section>
 
+      <!-- ── Time travel bar (premium) -->
+      <div class="time-travel">
+        <button class="tt-btn" on:click={prevDay} title="Previous day">‹</button>
+        <span class="tt-date" class:today={!travelDate}>
+          {#if travelDate}
+            {new Date(travelDate).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+            <button class="tt-today" on:click={resetToToday}>Today</button>
+          {:else}
+            Today
+          {/if}
+          {#if !isPremium}<span class="tt-lock">&#128274; Premium</span>{/if}
+        </span>
+        <button class="tt-btn" on:click={nextDay} title="Next day">›</button>
+      </div>
+
       <!-- ── 24-hour list -->
       <section class="all-hours">
-        <div class="hours-label">ALL 24 HOURS TODAY</div>
+        <div class="hours-label">{travelDate ? 'HOURS FOR THIS DATE' : 'ALL 24 HOURS TODAY'}</div>
         <ul class="hours-list">
           {#each schedule.hours as h (h.index)}
             {@const isCurrent = h.index === currentHour.index}
@@ -170,15 +250,23 @@
               <span class="h-name">{h.planet}</span>
               <span class="h-seq">{h.is_day ? '☀' : '🌙'} {h.sequence}</span>
               {#if isCurrent}<span class="h-now">◄ now</span>{/if}
+              <button class="h-note" on:click={() => openNotes(h.index, h.planet)}
+                title="{isPremium ? 'Add note' : 'Premium: notes'}"
+              >&#9998;</button>
             </li>
           {/each}
         </ul>
       </section>
 
-      <!-- ── Footer: location -->
+      <!-- ── Footer: location + actions -->
       <footer class="loc-footer">
         <span>📍 {formatCoord(lat, 'N', 'S')}, {formatCoord(lon, 'E', 'W')}</span>
-        <button class="settings-link" on:click={() => showSettings = true}>Settings</button>
+        <div class="footer-actions">
+          {#if !isPremium}
+            <button class="settings-link premium" on:click={() => showLicense = true}>✨ Premium</button>
+          {/if}
+          <button class="settings-link" on:click={() => showSettings = true}>Settings</button>
+        </div>
       </footer>
 
     {/if}
@@ -308,14 +396,6 @@
     text-transform: uppercase;
   }
   .hours-list { list-style: none; margin: 0; padding: 0; }
-  .hour-row {
-    display: grid;
-    grid-template-columns: 20px 44px 1fr 28px auto;
-    align-items: center;
-    gap: 7px;
-    padding: 5px 16px;
-    border-bottom: 1px solid #1a1a2e;
-  }
   .hour-row.current {
     background: #1a3a5c;
     border-left: 3px solid #e0b86a;
@@ -329,6 +409,59 @@
   .h-seq  { color: #445; font-size: 11px; text-align: right; }
   .h-now  { color: #e0b86a; font-size: 10px; font-weight: 700; }
 
+  /* ── Time travel bar */
+  .time-travel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 12px;
+    background: #12192e;
+    border-bottom: 1px solid #1a3055;
+    font-size: 12px;
+    color: #aaa;
+  }
+  .tt-btn {
+    background: none;
+    border: none;
+    color: #7c6fcd;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0 6px;
+    line-height: 1;
+  }
+  .tt-btn:hover { color: #e0b86a; }
+  .tt-date { flex: 1; text-align: center; }
+  .tt-date.today { color: #888; }
+  .tt-today {
+    background: none; border: none;
+    color: #7c6fcd; font-size: 11px;
+    cursor: pointer; margin-left: 6px;
+    text-decoration: underline;
+  }
+  .tt-lock { color: #555; font-size: 10px; margin-left: 6px; }
+
+  /* ── Hour row note button */
+  .hour-row {
+    display: grid;
+    grid-template-columns: 20px 44px 1fr 28px auto auto;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 16px;
+    border-bottom: 1px solid #1a1a2e;
+  }
+  .h-note {
+    background: none;
+    border: none;
+    color: #334;
+    font-size: 13px;
+    cursor: pointer;
+    padding: 0;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .hour-row:hover .h-note { opacity: 0.6; }
+  .h-note:hover { opacity: 1 !important; color: #e0b86a; }
+
   /* ── Footer */
   .loc-footer {
     display: flex;
@@ -340,6 +473,7 @@
     font-size: 11px;
     color: #556;
   }
+  .footer-actions { display: flex; gap: 10px; align-items: center; }
   .settings-link {
     background: none;
     border: none;
@@ -350,4 +484,6 @@
     padding: 0;
   }
   .settings-link:hover { color: #e0b86a; }
+  .settings-link.premium { color: #7c6fcd; }
+  .settings-link.premium:hover { color: #e0b86a; }
 </style>

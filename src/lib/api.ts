@@ -96,3 +96,33 @@ export const getStatusText  = ()                    => invoke<string>('get_statu
 export const getMoonPhase   = ()                    => invoke<MoonPhase>('get_moon_phase');
 export const getDisplayMode = ()                    => invoke<DisplayMode>('get_display_mode');
 export const setDisplayMode = (mode: DisplayMode)   => invoke<void>('set_display_mode', { mode });
+
+// ── Phase 2: Notes + License types ─────────────────────────────────────────────
+
+export interface Note {
+  id: number;
+  planet_key: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type LicenseStatus =
+  | { status: 'none' }
+  | { status: 'active'; key_hash: string; activated_at: string }
+  | { status: 'invalid' };
+
+// ── Phase 2: Notes IPC ───────────────────────────────────────────────────
+
+export const makePlanetKey = (date: string, hourIndex: number) =>
+  invoke<string>('make_planet_key', { date, hourIndex });
+
+export const todayString = () => invoke<string>('today_string');
+
+// ── Phase 2: License IPC ─────────────────────────────────────────────────
+
+export const getLicenseStatus  = ()                 => invoke<LicenseStatus>('get_license_status');
+export const activateLicense   = (rawKey: string)   => invoke<string>('activate_license', { rawKey });
+export const deactivateLicense = ()                 => invoke<void>('deactivate_license');
+export const restoreLicense    = (keyHash: string | null, activatedAt: string | null) =>
+  invoke<void>('restore_license', { keyHash, activatedAt });
