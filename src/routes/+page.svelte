@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { listen } from '@tauri-apps/api/event';
+  import { getCurrentWindow } from '@tauri-apps/api/window';
   import {
     initPrefs, getDaySchedule, getCurrentHour, getMoonPhase,
     planetSymbol, phaseEmoji, phaseName, formatTime, minutesUntil, formatCoord,
@@ -27,6 +28,7 @@
 
   // Listeners / timers
   let unlisten: (() => void) | null = null;
+  let unlistenFocus: (() => void) | null = null;
   let tickInterval: ReturnType<typeof setInterval> | null = null;
 
   // ── Lifecycle
@@ -41,13 +43,22 @@
     if (locationSet) {
       await refresh();
     }
-    // Even if not set, listen for ticks (happens once user finishes FirstRun)
+    // Listen for 30-second backend tick
     unlisten = await listen('astro:tick', refresh);
     tickInterval = setInterval(updateMins, 30_000);
+
+    // Dismiss window when it loses focus (macOS popover / Windows tray behaviour)
+    const appWindow = getCurrentWindow();
+    unlistenFocus = await appWindow.onFocusChanged(({ payload: focused }) => {
+      if (!focused && !showSettings) {
+        appWindow.hide();
+      }
+    });
   });
 
   onDestroy(() => {
     unlisten?.();
+    unlistenFocus?.();
     if (tickInterval) clearInterval(tickInterval);
   });
 

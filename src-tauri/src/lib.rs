@@ -15,6 +15,7 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_geolocation::init())
+        .plugin(tauri_plugin_positioner::init())
         .manage(std::sync::Mutex::new(commands::AppState::default()))
         .setup(|app| {
             tray::setup_tray(app)?;

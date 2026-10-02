@@ -42,7 +42,7 @@ pub type SharedState = Mutex<AppState>;
 /// Load saved prefs from tauri-plugin-store into AppState.
 /// Called once from setup (via the frontend's onMount → init_prefs command).
 #[tauri::command]
-pub async fn init_prefs(
+pub fn init_prefs(
     state: State<'_, SharedState>,
     app: tauri::AppHandle,
 ) -> Result<InitPrefsResult, String> {
@@ -93,7 +93,7 @@ pub struct InitPrefsResult {
 
 /// Persist current prefs to store.
 #[tauri::command]
-pub async fn save_prefs(
+pub fn save_prefs(
     state: State<'_, SharedState>,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
