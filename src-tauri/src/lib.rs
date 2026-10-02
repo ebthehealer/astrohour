@@ -23,14 +23,23 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            // Prefs
+            commands::init_prefs,
+            commands::save_prefs,
+            // Location
+            commands::get_location,
+            commands::set_location,
+            // Autostart
+            commands::get_autostart,
+            commands::set_autostart,
+            // Astronomical
             commands::get_current_hour,
             commands::get_day_schedule,
             commands::get_status_text,
             commands::get_moon_phase,
-            commands::set_location,
-            commands::get_location,
-            commands::set_display_mode,
+            // Display
             commands::get_display_mode,
+            commands::set_display_mode,
         ])
         .run(tauri::generate_context!())
         .expect("error while running AstroHour");

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<title>AstroHour Preview</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; background: #111; display: flex; gap: 24px; padding: 24px; justify-content: center; }
+.phone { width: 380px; height: 620px; border: 1px solid #333; border-radius: 12px; overflow: hidden; box-shadow: 0 16px 48px rgba(0,0,0,0.6); flex-shrink: 0; }
+</style>
+</head>
+<body>
+<div class="phone" id="main"></div>
+<div class="phone" id="settings"></div>
+<script>
+const GOLD = '#e0b86a';
+const BG = '#1a1a2e';
+const BG2 = '#16213e';
+const BLUE = '#0f3460';
+const BLUE2 = '#1a4a80';
+
+function el(tag, attrs={}, ...children) {
+  const e = document.createElement(tag);
+  for (const [k,v] of Object.entries(attrs)) {
+    if (k === 'style') Object.assign(e.style, v);
+    else if (k === 'class') e.className = v;
+    else e.setAttribute(k, v);
+  }
+  for (const c of children) {
+    if (typeof c === 'string') e.append(c);
+    else if (c) e.appendChild(c);
+  }
+  return e;
+}
+
+function s(obj) { return {style: obj}; }
+
+// ── Main popup ───────────────────────────────────────────────
+const main = document.getElementById('main');
+main.style.cssText = `background:${BG};display:flex;flex-direction:column;color:#e0e0e0;overflow:hidden;`;
+
+// Header
+const header = el('div', s({display:'flex',alignItems:'center',gap:'12px',padding:'14px 14px 14px 16px',background:BG2,borderBottom:`1px solid ${BLUE}`}));
+header.append(
+  el('span', s({fontSize:'36px',color:GOLD,lineHeight:'1'}), '♃'),
+  el('div', s({flex:'1'}),
+    el('div', s({fontSize:'15px',fontWeight:'600',color:'#fff'}),
+      'Jupiter Hour ',
+      el('span', s({fontSize:'10px',fontWeight:'400',color:'#888'}), 'Day 7 of 12')
+    ),
+    el('div', s({fontSize:'12px',color:'#aaa',marginTop:'3px'}),
+      '2:42 PM → 3:55 PM ',
+      el('span', s({color:GOLD,fontWeight:'600'}), '38m left')
+    )
+  ),
+  el('span', s({fontSize:'18px',opacity:'0.5',cursor:'pointer'}), '⚙️')
+);
+main.appendChild(header);
+
+// Day + moon
+const daymoon = el('div', s({padding:'10px 16px',background:BLUE,borderBottom:`1px solid ${BLUE2}`,display:'flex',flexDirection:'column',gap:'7px'}));
+const dayrow = el('div', s({display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap'}));
+dayrow.append(
+  el('span', s({color:'#aaa'}), 'Sunday'),
+  el('span', s({color:GOLD,fontWeight:'600'}), '☉ Sun Day'),
+  el('span', s({color:'#aaa',fontSize:'11px',marginLeft:'auto'}), '☀️ 7:04 AM – 4:28 PM')
+);
+const moonrow = el('div', s({display:'flex',alignItems:'center',gap:'10px'}));
+moonrow.append(
+  el('span', s({fontSize:'20px'}), '🌔'),
+  el('div', {},
+    el('div', s({fontWeight:'600',color:'#fff',fontSize:'13px'}), 'Waxing Gibbous'),
+    el('div', s({fontSize:'11px',color:'#aaa'}), 'Moon Day 11 · 74% illuminated')
+  )
+);
+daymoon.append(dayrow, moonrow);
+main.appendChild(daymoon);
+
+// Hours list
+const hoursSection = el('div', s({flex:'1',overflowY:'auto',background:BG}));
+const label = el('div', s({fontSize:'10px',fontWeight:'700',letterSpacing:'0.08em',color:'#445',padding:'9px 16px 3px',textTransform:'uppercase'}), 'ALL 24 HOURS TODAY');
+hoursSection.appendChild(label);
+
+const hours = [
+  ['♄','6:04 AM','Saturn','☀️ 1','past'],
+  ['☉','7:17 AM','Sun',   '☀️ 2','past'],
+  ['☽','8:30 AM','Moon',  '☀️ 3','past'],
+  ['♂','9:43 AM','Mars',  '☀️ 4','past'],
+  ['☿','10:56 AM','Mercury','☀️ 5','past'],
+  ['♃','12:09 PM','Jupiter','☀️ 6','past'],
+  ['♀','1:22 PM','Venus','☀️ 7','past'],
+  ['♄','2:35 PM','Saturn','☀️ 8','past'],
+  ['☉','3:48 PM','Sun',  '☀️ 9','past'],
+  ['♃','2:42 PM','Jupiter','☀️ 7','current'],
+  ['♀','3:55 PM','Venus','☀️ 8',''],
+  ['♄','5:08 PM','Saturn','☀️ 9',''],
+  ['☉','6:21 PM','Sun',  '🌙 1',''],
+];
+
+// reorder to put current near top for display
+const ordered = [
+  ['♄','6:04 AM','Saturn','☀️ 1','past'],
+  ['☉','7:17 AM','Sun','☀️ 2','past'],
+  ['☽','8:30 AM','Moon','☀️ 3','past'],
+  ['♂','9:43 AM','Mars','☀️ 4','past'],
+  ['☿','10:56 AM','Mercury','☀️ 5','past'],
+  ['♀','11:56 AM','Venus','☀️ 6','past'],
+  ['♃','2:42 PM','Jupiter','☀️ 7','current'],
+  ['♀','3:55 PM','Venus','☀️ 8',''],
+  ['♄','5:08 PM','Saturn','☀️ 9',''],
+  ['☉','6:21 PM','Sun','🌙 1',''],
+  ['☽','7:18 PM','Moon','🌙 2',''],
+  ['♂','8:15 PM','Mars','🌙 3',''],
+  ['☿','9:12 PM','Mercury','🌙 4',''],
+  ['♃','10:09 PM','Jupiter','🌙 5',''],
+];
+
+const ul = el('ul', s({listStyle:'none',margin:'0',padding:'0'}));
+for (const [sym, time, name, seq, state] of ordered) {
+  const isCurrent = state === 'current';
+  const isPast = state === 'past';
+  const row = el('li', s({
+    display:'grid',
+    gridTemplateColumns:'20px 50px 1fr 32px auto',
+    alignItems:'center',
+    gap:'7px',
+    padding: isCurrent ? '5px 16px 5px 13px' : '5px 16px',
+    borderBottom:`1px solid ${BG}`,
+    background: isCurrent ? '#1a3a5c' : (isPast ? 'transparent' : 'transparent'),
+    borderLeft: isCurrent ? `3px solid ${GOLD}` : '3px solid transparent',
+    opacity: isPast ? '0.35' : '1',
+  }));
+  row.append(
+    el('span', s({color:GOLD,fontSize:'14px',textAlign:'center'}), sym),
+    el('span', s({color:'#777',fontSize:'11px',fontVariantNumeric:'tabular-nums'}), time),
+    el('span', s({color:'#ccc'}), name),
+    el('span', s({color:'#445',fontSize:'10px',textAlign:'right'}), seq),
+    isCurrent ? el('span', s({color:GOLD,fontSize:'10px',fontWeight:'700'}), '◄ now') : el('span',{},'')
+  );
+  ul.appendChild(row);
+}
+hoursSection.appendChild(ul);
+main.appendChild(hoursSection);
+
+// Footer
+const footer = el('div', s({display:'flex',alignItems:'center',justifyContent:'space-between',padding:'7px 16px',background:'#12192e',borderTop:`1px solid #1a3055`,fontSize:'11px',color:'#556'}));
+footer.append(
+  el('span', {}, '📍 40.7128° N, 74.0060° W'),
+  el('span', s({textDecoration:'underline',cursor:'pointer'}), 'Settings')
+);
+main.appendChild(footer);
+
+// ── Settings panel ───────────────────────────────────────────
+const set = document.getElementById('settings');
+set.style.cssText = `background:${BG};display:flex;flex-direction:column;color:#e0e0e0;overflow-y:auto;`;
+
+const sh = el('div', s({display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 16px',fontWeight:'700',fontSize:'14px',borderBottom:`1px solid ${BLUE}`,color:'#fff',background:BG2}));
+sh.append(el('span',{},'Settings'), el('span',s({fontSize:'20px',color:'#aaa',cursor:'pointer'}), '×'));
+set.appendChild(sh);
+
+function section(title, ...contents) {
+  const sec = el('div', s({padding:'14px 16px',borderBottom:`1px solid ${BLUE}`}));
+  sec.append(el('div', s({fontSize:'10px',fontWeight:'700',letterSpacing:'0.08em',textTransform:'uppercase',color:'#556',marginBottom:'10px'}), title));
+  for (const c of contents) sec.appendChild(c);
+  return sec;
+}
+
+// Location section
+const geoBtn = el('button', s({width:'100%',padding:'8px',background:BLUE,border:`1px solid ${BLUE2}`,borderRadius:'6px',color:GOLD,fontSize:'13px',cursor:'pointer',marginBottom:'10px'}), '📍 Use my location');
+
+function fieldRow(labelText, placeholder) {
+  const row = el('div', s({display:'flex',alignItems:'center',gap:'8px',marginBottom:'7px'}));
+  row.append(
+    el('label', s({width:'70px',fontSize:'12px',color:'#aaa',flexShrink:'0'}), labelText),
+    el('input', {type:'number', placeholder, style:{flex:'1',background:'#0f1f3d',border:`1px solid ${BLUE2}`,borderRadius:'5px',padding:'6px 8px',color:'#fff',fontSize:'13px',outline:'none'}})
+  );
+  return row;
+}
+
+set.appendChild(section('Location',
+  geoBtn,
+  fieldRow('Latitude',  '40.7128'),
+  fieldRow('Longitude', '-74.0060'),
+  el('div', s({fontSize:'11px',color:'#556',marginTop:'2px'}), 'Current: 40.7128° N, 74.0060° W')
+));
+
+// Display mode
+function modeOpt(label, sub, selected) {
+  const opt = el('label', s({display:'flex',alignItems:'center',gap:'10px',padding:'8px 10px',borderRadius:'6px',border:`1px solid ${selected ? GOLD : '#1a3055'}`,background: selected ? '#1a3a5c' : 'transparent',cursor:'pointer',marginBottom:'5px'}));
+  opt.append(
+    el('span', s({fontSize:'13px',color:'#ddd',flex:'1'}), label),
+    el('span', s({fontSize:'10px',color:'#556'}), sub)
+  );
+  return opt;
+}
+set.appendChild(section('Status Bar Display',
+  modeOpt('♃', 'IconOnly', false),
+  modeOpt('♃ Jupiter Hour', 'Short', true),
+  modeOpt('♃ Jupiter Hour · 38m', 'Full', false)
+));
+
+// System
+const toggleRow = el('label', s({display:'flex',alignItems:'center',justifyContent:'space-between',fontSize:'13px',color:'#ddd',cursor:'pointer'}));
+const toggle = el('div', s({width:'40px',height:'22px',background:GOLD,borderRadius:'11px',position:'relative',transition:'background 0.2s'}));
+const thumb = el('div', s({position:'absolute',top:'3px',left:'3px',width:'16px',height:'16px',background:'#fff',borderRadius:'50%',transform:'translateX(18px)',transition:'transform 0.2s'}));
+toggle.appendChild(thumb);
+toggleRow.append(el('span',{},'Launch at login'), toggle);
+set.appendChild(section('System', toggleRow));
+
+// Footer
+const sf = el('div', s({display:'flex',gap:'8px',padding:'12px 16px',justifyContent:'flex-end',marginTop:'auto'}));
+sf.append(
+  el('button', s({padding:'7px 18px',borderRadius:'6px',fontSize:'13px',cursor:'pointer',border:'none',background:BLUE,color:'#aaa'}), 'Cancel'),
+  el('button', s({padding:'7px 18px',borderRadius:'6px',fontSize:'13px',cursor:'pointer',border:'none',background:GOLD,color:'#1a1a2e',fontWeight:'700'}), 'Save')
+);
+set.appendChild(sf);
+</script>
+</body></html>
