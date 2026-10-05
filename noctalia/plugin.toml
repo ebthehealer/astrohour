@@ -1,0 +1,52 @@
+id          = "astrohour/astrohour"
+name        = "AstroHour"
+version     = "0.1.0"
+plugin_api  = 19
+author      = "astrohour"
+description = "Planetary hours, moon phase, and lunar day in your bar and as a panel."
+license     = "MIT"
+
+# ── Settings ──────────────────────────────────────────────────────────────────
+
+[[setting]]
+key         = "lat"
+type        = "float"
+default     = 40.7128
+label       = "Latitude"
+description = "Your latitude (-90 to 90). Set this to your location."
+
+[[setting]]
+key         = "lon"
+type        = "float"
+default     = -74.0060
+label       = "Longitude"
+description  = "Your longitude (-180 to 180). Set this to your location."
+
+[[setting]]
+key         = "display"
+type        = "string"
+default     = "short"
+label       = "Bar display"
+description = "What to show in the bar: icon | short | full"
+
+[[setting]]
+key         = "binary"
+type        = "string"
+default     = "astrohour-cli"
+label       = "CLI binary path"
+description = "Path to the astrohour-cli binary. Use full path if not on $PATH."
+
+# ── Entries ───────────────────────────────────────────────────────────────────
+
+[[service]]
+id    = "daemon"
+entry = "service.luau"
+
+[[widget]]
+id    = "bar"
+entry = "widget.luau"
+label = "AstroHour"
+
+[[panel]]
+id    = "schedule"
+entry = "panel.luau"
