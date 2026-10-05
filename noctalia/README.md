@@ -20,7 +20,7 @@ Planetary hours, moon phase, and lunar day — in your Noctalia status bar.
 Build from source (requires Rust):
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/astrohour-core
+git clone https://github.com/ebthehealer/astrohour-core
 cd astrohour-core
 cargo build -p astrohour-cli --release
 # Copy to somewhere on your PATH:
@@ -39,7 +39,7 @@ noctalia msg plugins enable astrohour/astrohour
 
 ### Local development / testing
 ```bash
-git clone https://github.com/YOUR_USERNAME/astrohour
+git clone https://github.com/ebthehealer/astrohour
 noctalia msg plugins source add astrohour path ~/path/to/astrohour-noctalia
 noctalia msg plugins enable astrohour/astrohour
 ```
@@ -69,4 +69,4 @@ binary  = "/home/you/.local/bin/astrohour-cli"
 
 Free on Noctalia. If you find it useful, consider a $10 donation at https://astrohour.app/donate
 
-Issues: https://github.com/YOUR_USERNAME/astrohour/issues
+Issues: https://github.com/ebthehealer/astrohour/issues
