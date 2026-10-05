@@ -1,0 +1,15 @@
+{
+  "name": "astrohour-worker",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev":    "wrangler dev",
+    "deploy": "wrangler deploy",
+    "secrets": "echo 'Run: wrangler secret put STRIPE_WEBHOOK_SECRET && wrangler secret put STRIPE_SECRET_KEY && wrangler secret put ED25519_PRIVATE_KEY_HEX && wrangler secret put RESEND_API_KEY'"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4",
+    "typescript":                "^5",
+    "wrangler":                  "^3"
+  }
+}

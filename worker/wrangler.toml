@@ -1,0 +1,14 @@
+name            = "astrohour-license"
+main            = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+[vars]
+# Public-facing — not secrets
+APP_NAME = "AstroHour"
+FROM_EMAIL = "licenses@astrohour.app"
+
+# Secrets (set via `wrangler secret put`):
+#   STRIPE_WEBHOOK_SECRET   — from Stripe Dashboard > Webhooks
+#   STRIPE_SECRET_KEY       — Stripe secret key (for verifying payment intent)
+#   ED25519_PRIVATE_KEY_HEX — raw 32-byte private key as hex
+#   RESEND_API_KEY          — for sending license emails via resend.com
