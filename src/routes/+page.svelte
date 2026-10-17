@@ -12,6 +12,7 @@
   import Notes from '$lib/Notes.svelte';
   import License from '$lib/License.svelte';
   import { makePlanetKey, todayString, getLicenseStatus, type LicenseStatus } from '$lib/api';
+  import { themes, applyTheme, DEFAULT_THEME } from '$lib/themes';
 
   // ── App-level state
   let ready = false;          // prefs loaded
@@ -43,6 +44,7 @@
   let lon = -74.0060;
   let displayMode: DisplayMode = 'Short';
   let deviceSecret = '';
+  let currentTheme = DEFAULT_THEME;
 
   // Listeners / timers
   let unlisten: (() => void) | null = null;
@@ -57,6 +59,10 @@
     displayMode = prefs.display_mode as DisplayMode;
     locationSet = prefs.location_set;
     deviceSecret = prefs.device_secret;
+    // Apply saved theme (falls back to default if not set)
+    const savedTheme = (prefs as any).theme ?? DEFAULT_THEME;
+    currentTheme = savedTheme in themes ? savedTheme : DEFAULT_THEME;
+    applyTheme(themes[currentTheme]);
     ready = true;
 
     if (locationSet) {
@@ -179,9 +185,13 @@
 
 {:else if showSettings}
   <Settings
-    {lat} {lon} {displayMode}
+    {lat} {lon} {displayMode} {currentTheme}
     on:close={() => showSettings = false}
     on:saved={onSettingsSaved}
+    on:themeChange={(e) => {
+      currentTheme = e.detail;
+      applyTheme(themes[currentTheme]);
+    }}
   />
 
 {:else}
@@ -281,12 +291,33 @@
 {/if}
 
 <style>
+  /* ── CSS custom properties (set by applyTheme() at runtime) ── */
+  :global(:root) {
+    --bg-base:        #1a1a2e;
+    --bg-surface:     #16213e;
+    --bg-elevated:    #0f3460;
+    --bg-highlight:   #1a4a80;
+    --text-primary:   #e0e0e0;
+    --text-secondary: #aaaaaa;
+    --text-muted:     #666688;
+    --text-inverse:   #1a1a2e;
+    --accent:         #e0b86a;
+    --accent-soft:    #554433;
+    --planet-day:     #e0b86a;
+    --planet-night:   #8899cc;
+    --danger:         #c97b7b;
+    --success:        #5dba7d;
+    --btn-bg:         #0f3460;
+    --btn-text:       #e0e0e0;
+    --link-color:     #7c6fcd;
+  }
+
   :global(body) {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     font-size: 13px;
-    background: #1a1a2e;
-    color: #e0e0e0;
+    background: var(--bg-base);
+    color: var(--text-primary);
     overflow: hidden;
     height: 100vh;
     width: 100vw;
@@ -299,7 +330,7 @@
     justify-content: center;
     height: 100vh;
     font-size: 48px;
-    color: #e0b86a;
+    color: var(--accent);
     opacity: 0.3;
   }
 
@@ -313,8 +344,8 @@
   .spinner {
     width: 24px;
     height: 24px;
-    border: 2px solid #223;
-    border-top-color: #e0b86a;
+    border: 2px solid var(--bg-elevated);
+    border-top-color: var(--accent);
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
   }
@@ -334,12 +365,12 @@
     align-items: center;
     gap: 12px;
     padding: 14px 14px 14px 16px;
-    background: #16213e;
-    border-bottom: 1px solid #0f3460;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--bg-elevated);
   }
   .symbol {
     font-size: 36px;
-    color: #e0b86a;
+    color: var(--accent);
     line-height: 1;
     flex-shrink: 0;
   }
@@ -347,20 +378,20 @@
   .hour-name {
     font-size: 15px;
     font-weight: 600;
-    color: #fff;
+    color: var(--text-primary);
   }
   .day-night {
     font-size: 10px;
     font-weight: 400;
-    color: #888;
+    color: var(--text-secondary);
     margin-left: 6px;
   }
   .hour-times {
     font-size: 12px;
-    color: #aaa;
+    color: var(--text-secondary);
     margin-top: 3px;
   }
-  .mins { color: #e0b86a; margin-left: 8px; font-weight: 600; }
+  .mins { color: var(--accent); margin-left: 8px; font-weight: 600; }
   .gear {
     background: none;
     border: none;
@@ -369,14 +400,15 @@
     padding: 4px;
     opacity: 0.5;
     flex-shrink: 0;
+    color: var(--text-primary);
   }
   .gear:hover { opacity: 1; }
 
   /* ── Day + moon */
   .day-moon {
     padding: 10px 16px;
-    background: #0f3460;
-    border-bottom: 1px solid #1a4a80;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--bg-highlight);
     display: flex;
     flex-direction: column;
     gap: 7px;
@@ -387,13 +419,13 @@
     gap: 8px;
     flex-wrap: wrap;
   }
-  .day-label { color: #aaa; }
-  .ruler { color: #e0b86a; font-weight: 600; }
-  .sun-times { color: #aaa; font-size: 11px; margin-left: auto; }
+  .day-label { color: var(--text-secondary); }
+  .ruler { color: var(--accent); font-weight: 600; }
+  .sun-times { color: var(--text-secondary); font-size: 11px; margin-left: auto; }
   .moon-row { display: flex; align-items: center; gap: 10px; }
   .phase-emoji { font-size: 20px; }
-  .phase-name { font-weight: 600; color: #fff; font-size: 13px; }
-  .lunar-day { font-size: 11px; color: #aaa; }
+  .phase-name { font-weight: 600; color: var(--text-primary); font-size: 13px; }
+  .lunar-day { font-size: 11px; color: var(--text-secondary); }
 
   /* ── Hours list */
   .all-hours { flex: 1; overflow-y: auto; min-height: 0; }
@@ -401,23 +433,25 @@
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.08em;
-    color: #445;
+    color: var(--text-muted);
     padding: 9px 16px 3px;
     text-transform: uppercase;
   }
   .hours-list { list-style: none; margin: 0; padding: 0; }
   .hour-row.current {
-    background: #1a3a5c;
-    border-left: 3px solid #e0b86a;
+    background: var(--bg-highlight);
+    border-left: 3px solid var(--accent);
     padding-left: 13px;
   }
-  .hour-row.night { opacity: 0.75; }
-  .hour-row.past  { opacity: 0.35; }
-  .h-sym  { color: #e0b86a; font-size: 14px; text-align: center; }
-  .h-time { color: #777; font-size: 11px; font-variant-numeric: tabular-nums; }
-  .h-name { color: #ccc; }
-  .h-seq  { color: #445; font-size: 11px; text-align: right; }
-  .h-now  { color: #e0b86a; font-size: 10px; font-weight: 700; }
+  /* past hours: still readable, just slightly muted */
+  .hour-row.past  { opacity: 0.55; }
+  /* night hours: faint blue tint on the symbol only, row stays readable */
+  .h-sym  { color: var(--accent); font-size: 14px; text-align: center; }
+  .hour-row.night .h-sym { color: var(--planet-night); }
+  .h-time { color: var(--text-secondary); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .h-name { color: var(--text-primary); }
+  .h-seq  { color: var(--text-muted); font-size: 11px; text-align: right; }
+  .h-now  { color: var(--accent); font-size: 10px; font-weight: 700; }
 
   /* ── Time travel bar */
   .time-travel {
@@ -425,30 +459,30 @@
     align-items: center;
     justify-content: space-between;
     padding: 5px 12px;
-    background: #12192e;
-    border-bottom: 1px solid #1a3055;
+    background: var(--bg-base);
+    border-bottom: 1px solid var(--bg-surface);
     font-size: 12px;
-    color: #aaa;
+    color: var(--text-secondary);
   }
   .tt-btn {
     background: none;
     border: none;
-    color: #7c6fcd;
+    color: var(--link-color);
     font-size: 18px;
     cursor: pointer;
     padding: 0 6px;
     line-height: 1;
   }
-  .tt-btn:hover { color: #e0b86a; }
+  .tt-btn:hover { color: var(--accent); }
   .tt-date { flex: 1; text-align: center; }
-  .tt-date.today { color: #888; }
+  .tt-date.today { color: var(--text-muted); }
   .tt-today {
     background: none; border: none;
-    color: #7c6fcd; font-size: 11px;
+    color: var(--link-color); font-size: 11px;
     cursor: pointer; margin-left: 6px;
     text-decoration: underline;
   }
-  .tt-lock { color: #555; font-size: 10px; margin-left: 6px; }
+  .tt-lock { color: var(--text-muted); font-size: 10px; margin-left: 6px; }
 
   /* ── Hour row note button */
   .hour-row {
@@ -457,12 +491,12 @@
     align-items: center;
     gap: 7px;
     padding: 5px 16px;
-    border-bottom: 1px solid #1a1a2e;
+    border-bottom: 1px solid var(--bg-base);
   }
   .h-note {
     background: none;
     border: none;
-    color: #334;
+    color: var(--text-muted);
     font-size: 13px;
     cursor: pointer;
     padding: 0;
@@ -470,7 +504,7 @@
     transition: opacity 0.15s;
   }
   .hour-row:hover .h-note { opacity: 0.6; }
-  .h-note:hover { opacity: 1 !important; color: #e0b86a; }
+  .h-note:hover { opacity: 1 !important; color: var(--accent); }
 
   /* ── Footer */
   .loc-footer {
@@ -478,24 +512,24 @@
     align-items: center;
     justify-content: space-between;
     padding: 7px 16px;
-    background: #12192e;
-    border-top: 1px solid #1a3055;
+    background: var(--bg-base);
+    border-top: 1px solid var(--bg-surface);
     font-size: 11px;
-    color: #556;
+    color: var(--text-muted);
   }
   .footer-actions { display: flex; gap: 10px; align-items: center; }
   .settings-link {
     background: none;
     border: none;
-    color: #556;
+    color: var(--text-muted);
     font-size: 11px;
     cursor: pointer;
     text-decoration: underline;
     padding: 0;
   }
-  .settings-link:hover { color: #e0b86a; }
-  .settings-link.premium { color: #7c6fcd; }
-  .settings-link.premium:hover { color: #e0b86a; }
-  .settings-link.donation { color: #c97b7b; text-decoration: none; }
-  .settings-link.donation:hover { color: #e0b86a; }
+  .settings-link:hover { color: var(--accent); }
+  .settings-link.premium { color: var(--link-color); }
+  .settings-link.premium:hover { color: var(--accent); }
+  .settings-link.donation { color: var(--danger); text-decoration: none; }
+  .settings-link.donation:hover { color: var(--accent); }
 </style>
