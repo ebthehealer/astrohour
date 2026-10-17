@@ -23,8 +23,9 @@
   let showNotesHistory = false;
 
   // Notes overlay state
-  let notesKey:  string | null = null;  // planet_key being edited
-  let notesName: string | null = null;  // human label for the overlay header
+  let notesKey:   string | null = null;  // planet_key being edited
+  let notesName:  string | null = null;  // human label for the overlay header
+  let notesGlyph: string = '';
 
   // License status (refreshed on mount + after activation)
   let licenseStatus: LicenseStatus = { status: 'none' };
@@ -102,7 +103,8 @@
   }
 
   // ── Notes
-  async function openNotes(hourIndex: number, planetName: string) {
+  async function openNotes(hourIndex: number, planetName: string, glyph = '') {
+    notesGlyph = glyph;
     if (!isPremium) { showLicense = true; return; }
     const today = await todayString();
     const date  = travelDate ?? today;
@@ -181,7 +183,8 @@
   <Notes
     planetKey={notesKey}
     planetName={notesName}
-    onClose={() => { notesKey = null; notesName = null; }}
+    planetGlyph={notesGlyph}
+    onClose={() => { notesKey = null; notesName = null; notesGlyph = ''; }}
   />
 
 {:else if showLicense}
@@ -212,7 +215,9 @@
 
       <!-- ── Header: current hour (draggable title bar since decorations=false) -->
       <header class="current-hour">
-        <div class="drag-region" data-tauri-drag-region>
+        <div class="drag-region"
+          on:mousedown={async (e) => { if (e.buttons === 1) await getCurrentWindow().startDragging(); }}
+          role="none">
           <span class="symbol">{planetSymbol(currentHour.planet)}</span>
           <div class="hour-info">
             {#if displayMode === 'IconOnly'}
@@ -294,7 +299,7 @@
               <span class="h-name">{h.planet}</span>
               <span class="h-seq">{h.is_day ? '☀' : '🌙'} {h.sequence}</span>
               {#if isCurrent}<span class="h-now">◄ now</span>{/if}
-              <button class="h-note" on:click={() => openNotes(h.index, h.planet)}
+              <button class="h-note" on:click={() => openNotes(h.index, h.planet, planetSymbol(h.planet))}
                 title="{isPremium ? 'Add note' : 'Premium: notes'}"
               >&#9998;</button>
             </li>
@@ -408,8 +413,6 @@
     cursor: grab;
   }
   .drag-region:active { cursor: grabbing; }
-  [data-tauri-drag-region], .drag-region { -webkit-app-region: drag; }
-  button, a, input, textarea, select { -webkit-app-region: no-drag; }
   .symbol {
     font-size: 36px;
     color: var(--accent);
@@ -557,8 +560,7 @@
   }
   .hour-row:hover .h-note { opacity: 0.85; }
   .h-note:hover { opacity: 1 !important; color: var(--accent); background: var(--bg-elevated); }
-  /* Note present indicator */
-  .h-note.has-note { color: var(--accent); opacity: 0.8; }
+
 
   /* ── Footer */
   .loc-footer {

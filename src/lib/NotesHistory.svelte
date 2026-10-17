@@ -14,6 +14,7 @@
   interface NoteRow {
     id: number;
     planet_key: string;   // "YYYY-MM-DD:N"
+    planet_name: string | null;  // e.g. "☿ Mercury Hour"
     body: string;
     created_at: string;
     updated_at: string;
@@ -50,15 +51,11 @@
     return { date, index: Number(idx) };
   }
 
-  // Derive planet name from key: planet_key encodes the hour index,
-  // but we stored it as "YYYY-MM-DD:hourIndex". We look up the planet name
-  // from the stored body isn't reliable, so we label it "Hour N" with the index.
-  // The actual planet name is NOT in the key — we'll show "Hour N (Day/Night)".
-  // Better: openNote opens the Notes overlay which already knows the planet.
-  function labelFor(key: string) {
-    const { index } = parseKey(key);
-    const slot = index + 1;
-    return `Hour ${slot}`;
+  function labelFor(note: NoteRow) {
+    if (note.planet_name) return note.planet_name;
+    // Fallback for old notes without planet_name stored
+    const { index } = parseKey(note.planet_key);
+    return `Hour ${index + 1}`;
   }
 
   function formatDate(dateStr: string) {
@@ -132,7 +129,7 @@
         <div class="date-group">
           <div class="date-label">{formatDate(date)}</div>
           {#each notes as note (note.id)}
-            {@const label = labelFor(note.planet_key)}
+            {@const label = labelFor(note)}
             <div class="hist-note">
               <div class="hist-note-meta">
                 <span class="hist-hour"
