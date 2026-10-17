@@ -293,23 +293,23 @@
 <style>
   /* ── CSS custom properties (set by applyTheme() at runtime) ── */
   :global(:root) {
-    --bg-base:        #1a1a2e;
-    --bg-surface:     #16213e;
-    --bg-elevated:    #0f3460;
-    --bg-highlight:   #1a4a80;
-    --text-primary:   #e0e0e0;
-    --text-secondary: #aaaaaa;
-    --text-muted:     #666688;
-    --text-inverse:   #1a1a2e;
-    --accent:         #e0b86a;
-    --accent-soft:    #554433;
-    --planet-day:     #e0b86a;
-    --planet-night:   #8899cc;
-    --danger:         #c97b7b;
-    --success:        #5dba7d;
-    --btn-bg:         #0f3460;
-    --btn-text:       #e0e0e0;
-    --link-color:     #7c6fcd;
+    --bg-base:        #000000;
+    --bg-surface:     #0a0a0a;
+    --bg-elevated:    #141414;
+    --bg-highlight:   #1e1e1e;
+    --text-primary:   #f0f0f0;
+    --text-secondary: #888888;
+    --text-muted:     #444444;
+    --text-inverse:   #000000;
+    --accent:         #c8a84b;
+    --accent-soft:    #3a2e10;
+    --planet-day:     #c8a84b;
+    --planet-night:   #6677bb;
+    --danger:         #b06060;
+    --success:        #4a9060;
+    --btn-bg:         #141414;
+    --btn-text:       #f0f0f0;
+    --link-color:     #6655bb;
   }
 
   :global(body) {

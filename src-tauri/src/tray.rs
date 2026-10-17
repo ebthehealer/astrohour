@@ -65,9 +65,11 @@ pub fn setup_tray(app: &mut App) -> tauri::Result<()> {
 
     #[cfg(target_os = "linux")]
     {
-        let icon = tauri::image::Image::from_bytes(
-            include_bytes!("../icons/32x32.png")
-        ).expect("tray icon missing");
+        let icon = linux_icon::render(&initial_text)
+            .unwrap_or_else(|| {
+                tauri::image::Image::from_bytes(include_bytes!("../icons/tray-planet.png"))
+                    .expect("fallback tray icon missing")
+            });
         builder = builder.icon(icon);
     }
 
@@ -230,7 +232,7 @@ mod win_icon {
         let transform = Transform::from_translate(6.0, 6.0);
         pixmap.stroke_path(&path, &paint, &stroke, transform, None);
 
-        Image::new_owned(pixmap.take(), 32, 32).ok()
+        Some(Image::new_owned(pixmap.take(), 32, 32))
     }
 }
 
@@ -254,6 +256,17 @@ pub fn refresh_tray(app: &tauri::AppHandle) {
         if let Some(icon) = win_icon::render(&text) {
             let _ = tray.set_icon(Some(icon));
         }
+
+        // Linux: re-render glyph, fall back to ringed planet PNG
+        #[cfg(target_os = "linux")]
+        {
+            let icon = linux_icon::render(&text)
+                .unwrap_or_else(|| {
+                    tauri::image::Image::from_bytes(include_bytes!("../icons/tray-planet.png"))
+                        .expect("fallback tray icon missing")
+                });
+            let _ = tray.set_icon(Some(icon));
+        }
     }
 
     let _ = app.emit("astro:tick", ());
@@ -264,4 +277,94 @@ fn initial_tray_text(app: &App) -> String {
     let state = app.state::<SharedState>();
     let s = state.lock().unwrap();
     status_bar_text(s.location, s.display_mode)
+}
+
+// ── Linux glyph icon ───────────────────────────────────────────────────────────────
+
+#[cfg(target_os = "linux")]
+mod linux_icon {
+    //! Renders the current planet glyph into a 32×32 RGBA icon for the
+    //! Linux system tray using tiny-skia. Same approach as win_icon but
+    //! with a slightly brighter palette for dark/light panel backgrounds.
+    //!
+    //! Returns None on any rendering failure — caller uses the PNG fallback.
+
+    use tiny_skia::{Color, Paint, PathBuilder, Pixmap, Stroke, Transform};
+    use tauri::image::Image;
+
+    fn first_char(text: &str) -> char {
+        text.chars().next().unwrap_or('\u{2643}')
+    }
+
+    fn build_path(ch: char) -> Option<tiny_skia::Path> {
+        let mut pb = PathBuilder::new();
+        match ch {
+            // ☉ Sun
+            '\u{2609}' => {
+                pb.push_circle(10.0, 10.0, 8.5);
+                pb.push_circle(10.0, 10.0, 2.5);
+            }
+            // ☽ Moon
+            '\u{263D}' => {
+                pb.push_circle(10.0, 10.0, 8.5);
+                pb.push_circle(13.5, 10.0, 6.5);
+            }
+            // ♂ Mars
+            '\u{2642}' => {
+                pb.push_circle(7.5, 12.5, 6.5);
+                pb.move_to(12.5, 7.5);  pb.line_to(19.5, 0.5);
+                pb.move_to(14.0, 0.5);  pb.line_to(19.5, 0.5);  pb.line_to(19.5, 6.0);
+            }
+            // ☿ Mercury
+            '\u{263F}' => {
+                pb.push_circle(10.0, 10.5, 5.0);
+                pb.move_to(5.5, 8.5);  pb.quad_to(10.0, 3.5, 14.5, 8.5);
+                pb.move_to(10.0, 15.5); pb.line_to(10.0, 20.0);
+                pb.move_to(6.5, 18.0);  pb.line_to(13.5, 18.0);
+            }
+            // ♃ Jupiter
+            '\u{2643}' => {
+                pb.move_to(14.0, 1.5);  pb.line_to(14.0, 20.0);
+                pb.move_to(5.0, 12.0);  pb.line_to(18.0, 12.0);
+                pb.move_to(13.0, 1.5);
+                pb.quad_to(3.0, 1.5, 3.0, 8.5);
+                pb.quad_to(3.0, 13.0, 14.0, 13.0);
+            }
+            // ♀ Venus
+            '\u{2640}' => {
+                pb.push_circle(10.0, 8.0, 7.0);
+                pb.move_to(10.0, 15.0); pb.line_to(10.0, 20.0);
+                pb.move_to(6.5, 18.0);  pb.line_to(13.5, 18.0);
+            }
+            // ♄ Saturn
+            '\u{2644}' => {
+                pb.move_to(10.0, 0.5);  pb.line_to(10.0, 14.0);
+                pb.move_to(6.0,  4.5);  pb.line_to(14.0, 4.5);
+                pb.move_to(10.0, 14.0);
+                pb.quad_to(18.0, 14.0, 18.0, 18.5);
+                pb.quad_to(18.0, 22.0, 13.5, 21.0);
+            }
+            _ => return None,
+        }
+        pb.finish()
+    }
+
+    pub fn render(status_text: &str) -> Option<Image> {
+        let ch   = first_char(status_text);
+        let path = build_path(ch)?;
+
+        let mut pixmap = Pixmap::new(32, 32)?;
+        pixmap.fill(Color::TRANSPARENT);
+
+        let mut paint = Paint::default();
+        // Bright gold — visible on both dark and light panels
+        paint.set_color_rgba8(220, 185, 90, 255);
+        paint.anti_alias = true;
+
+        let stroke = Stroke { width: 1.8, ..Default::default() };
+        let transform = Transform::from_translate(6.0, 6.0);
+        pixmap.stroke_path(&path, &paint, &stroke, transform, None);
+
+        Some(Image::new_owned(pixmap.take(), 32, 32))
+    }
 }
