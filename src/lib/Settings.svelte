@@ -8,11 +8,19 @@
   } from './api';
   import { detectLocation } from './geo';
   import { themes, type Theme } from './themes';
+  import { setTrayIconColor } from './api';
 
   export let lat: number;
   export let lon: number;
   export let displayMode: DisplayMode;
   export let currentTheme: string = 'midnight';
+  export let trayIconColor: string = 'white';
+
+  const TRAY_COLORS = [
+    { id: 'white',  label: 'White',  hex: '#ffffff' },
+    { id: 'gold',   label: 'Gold',   hex: '#c8a84b' },
+    { id: '#aaaaaa', label: 'Grey', hex: '#aaaaaa' },
+  ];
 
   const dispatch = createEventDispatcher<{
     close: void;
@@ -133,6 +141,25 @@
             <span class="mode-label">{m === 'IconOnly' ? '♃' : m === 'Short' ? '♃ Jupiter Hour' : '♃ Jupiter Hour · 38m'}</span>
             <span class="mode-name">{m}</span>
           </label>
+        {/each}
+      </div>
+    </section>
+
+    <!-- Tray icon color -->
+    <section>
+      <div class="section-title">Tray Icon Color</div>
+      <div class="tray-color-row">
+        {#each TRAY_COLORS as c}
+          <button
+            class="tray-color-btn"
+            class:selected={trayIconColor === c.id}
+            style="border-color:{trayIconColor === c.id ? c.hex : 'transparent'};"
+            on:click={async () => { trayIconColor = c.id; await setTrayIconColor(c.id); }}
+            title={c.label}
+          >
+            <span class="tray-dot" style="background:{c.hex};"></span>
+            <span class="tray-label">{c.label}</span>
+          </button>
         {/each}
       </div>
     </section>
@@ -371,6 +398,35 @@
   .btn-save { background: var(--accent, #e0b86a); color: var(--text-inverse, #1a1a2e); font-weight: 700; }
   .btn-save:hover:not(:disabled) { filter: brightness(1.1); }
   .btn-save:disabled { opacity: 0.5; cursor: wait; }
+
+  /* Tray color picker */
+  .tray-color-row {
+    display: flex;
+    gap: 8px;
+  }
+  .tray-color-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background: var(--bg-elevated);
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .tray-color-btn.selected { background: var(--bg-highlight); }
+  .tray-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+  .tray-label {
+    font-size: 12px;
+    color: var(--text-primary);
+  }
 
   /* Theme swatches */
   .theme-grid {

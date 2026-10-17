@@ -15,10 +15,12 @@ export interface LocationResult {
 }
 
 export interface InitPrefsResult {
-  location_set: boolean;
-  lat: number;
-  lon: number;
-  display_mode: DisplayMode;
+  location_set:     boolean;
+  lat:              number;
+  lon:              number;
+  display_mode:     string;
+  device_secret:    string;  // per-install hex string, used as stronghold vault password
+  tray_icon_color:  string;  // "white", "gold", or "#rrggbb"
 }
 
 export type DisplayMode = 'IconOnly' | 'Short' | 'Full';
@@ -95,7 +97,8 @@ export const getDaySchedule = (date?: string)       => invoke<DaySchedule>('get_
 export const getStatusText  = ()                    => invoke<string>('get_status_text');
 export const getMoonPhase   = ()                    => invoke<MoonPhase>('get_moon_phase');
 export const getDisplayMode = ()                    => invoke<DisplayMode>('get_display_mode');
-export const setDisplayMode = (mode: DisplayMode)   => invoke<void>('set_display_mode', { mode });
+export const setDisplayMode    = (mode: DisplayMode)   => invoke<void>('set_display_mode', { mode });
+export const setTrayIconColor  = (color: string)       => invoke<void>('set_tray_icon_color', { color });
 
 // ── Phase 2: Notes + License types ─────────────────────────────────────────────
 
