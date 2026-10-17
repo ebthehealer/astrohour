@@ -15,6 +15,7 @@ use astrohour_core::{
 use chrono::{NaiveDate, Utc};
 use tauri::State;
 use std::sync::Mutex;
+use crate::license::sha256_hex;
 
 // ── App state ──────────────────────────────────────────────────────────────────
 
@@ -71,6 +72,18 @@ pub fn init_prefs(
         };
     }
 
+    // Generate device secret if not already present.
+    // Used as the stronghold vault password — stable per-install, invisible to user.
+    if store.get("device_secret").is_none() {
+        let secret = generate_device_secret();
+        store.set("device_secret", serde_json::Value::String(secret));
+        store.save().map_err(|e| e.to_string())?;
+    }
+    let device_secret = store
+        .get("device_secret")
+        .and_then(|v| v.as_str().map(String::from))
+        .unwrap_or_else(generate_device_secret);
+
     Ok(InitPrefsResult {
         location_set: s.location_set,
         lat: s.location.lat,
@@ -80,15 +93,26 @@ pub fn init_prefs(
             DisplayMode::Short    => "Short".into(),
             DisplayMode::Full     => "Full".into(),
         },
+        device_secret,
     })
+}
+
+/// Generate a 64-char hex device secret from timestamp + PID mixed via SHA-256.
+/// Not a cryptographic secret — just needs to be stable and unique per install.
+fn generate_device_secret() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let ts  = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos();
+    let pid = std::process::id();
+    sha256_hex(format!("astrohour-device-{ts}-{pid}").as_bytes())
 }
 
 #[derive(serde::Serialize)]
 pub struct InitPrefsResult {
-    pub location_set: bool,
-    pub lat: f64,
-    pub lon: f64,
-    pub display_mode: String,
+    pub location_set:  bool,
+    pub lat:           f64,
+    pub lon:           f64,
+    pub display_mode:  String,
+    pub device_secret: String,
 }
 
 /// Persist current prefs to store.
@@ -249,8 +273,20 @@ use crate::license::{validate_key, LicenseStatus, SharedLicense};
 
 /// Return the current license status for the frontend.
 /// Called on startup and after key entry.
+///
+/// On Linux all features are free — always returns Active with a
+/// special "linux-free" key hash so the frontend knows to show
+/// a donation prompt instead of a license UI.
 #[tauri::command]
 pub fn get_license_status(license: State<SharedLicense>) -> LicenseStatus {
+    #[cfg(target_os = "linux")]
+    {
+        return LicenseStatus::Active {
+            key_hash:     "linux-free".into(),
+            activated_at: "linux-free".into(),
+        };
+    }
+    #[cfg(not(target_os = "linux"))]
     license.lock().unwrap().clone()
 }
 
