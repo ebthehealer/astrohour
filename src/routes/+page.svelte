@@ -25,7 +25,9 @@
 
   // License status (refreshed on mount + after activation)
   let licenseStatus: LicenseStatus = { status: 'none' };
-  $: isPremium = licenseStatus.status === 'active';
+  $: isPremium   = licenseStatus.status === 'active';
+  // On Linux all features are free; backend sets key_hash = 'linux-free'.
+  $: isLinuxFree = isPremium && (licenseStatus as any).key_hash === 'linux-free';
 
   // Time-travel date (null = today)
   let travelDate: string | null = null;
@@ -40,6 +42,7 @@
   let lat = 40.7128;
   let lon = -74.0060;
   let displayMode: DisplayMode = 'Short';
+  let deviceSecret = '';
 
   // Listeners / timers
   let unlisten: (() => void) | null = null;
@@ -53,6 +56,7 @@
     lon = prefs.lon;
     displayMode = prefs.display_mode as DisplayMode;
     locationSet = prefs.location_set;
+    deviceSecret = prefs.device_secret;
     ready = true;
 
     if (locationSet) {
@@ -168,6 +172,7 @@
 
 {:else if showLicense}
   <License
+    {deviceSecret}
     onClose={() => showLicense = false}
     onActivated={onLicenseActivated}
   />
@@ -262,7 +267,9 @@
       <footer class="loc-footer">
         <span>📍 {formatCoord(lat, 'N', 'S')}, {formatCoord(lon, 'E', 'W')}</span>
         <div class="footer-actions">
-          {#if !isPremium}
+          {#if isLinuxFree}
+            <a class="settings-link donation" href="https://astrohour.app/donate" target="_blank" rel="noreferrer">♥ Donate</a>
+          {:else if !isPremium}
             <button class="settings-link premium" on:click={() => showLicense = true}>✨ Premium</button>
           {/if}
           <button class="settings-link" on:click={() => showSettings = true}>Settings</button>
@@ -486,4 +493,6 @@
   .settings-link:hover { color: #e0b86a; }
   .settings-link.premium { color: #7c6fcd; }
   .settings-link.premium:hover { color: #e0b86a; }
+  .settings-link.donation { color: #c97b7b; text-decoration: none; }
+  .settings-link.donation:hover { color: #e0b86a; }
 </style>
