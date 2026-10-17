@@ -34,7 +34,7 @@ impl Default for AppState {
             location: Location { lat: 40.7128, lon: -74.0060 },
             display_mode: DisplayMode::Short,
             location_set: false,
-            tray_icon_color: "white".to_string(),
+            tray_icon_color: "auto".to_string(),
         }
     }
 }

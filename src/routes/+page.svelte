@@ -48,7 +48,7 @@
   let displayMode: DisplayMode = 'Short';
   let deviceSecret = '';
   let currentTheme = DEFAULT_THEME;
-  let trayIconColor = 'white';
+  let trayIconColor = 'auto';
 
   // Listeners / timers
   let unlisten: (() => void) | null = null;
