@@ -24,6 +24,8 @@ pub struct AppState {
     pub display_mode: DisplayMode,
     /// true once geolocation has succeeded or user has entered coords manually
     pub location_set: bool,
+    /// Tray icon color: "white", "gold", or a hex string like "#ff8800"
+    pub tray_icon_color: String,
 }
 
 impl Default for AppState {
@@ -32,6 +34,7 @@ impl Default for AppState {
             location: Location { lat: 40.7128, lon: -74.0060 },
             display_mode: DisplayMode::Short,
             location_set: false,
+            tray_icon_color: "white".to_string(),
         }
     }
 }
@@ -72,6 +75,10 @@ pub fn init_prefs(
         };
     }
 
+    if let Some(color) = store.get("tray_icon_color").and_then(|v| v.as_str().map(String::from)) {
+        s.tray_icon_color = color;
+    }
+
     // Generate device secret if not already present.
     // Used as the stronghold vault password — stable per-install, invisible to user.
     if store.get("device_secret").is_none() {
@@ -94,6 +101,7 @@ pub fn init_prefs(
             DisplayMode::Full     => "Full".into(),
         },
         device_secret,
+        tray_icon_color: s.tray_icon_color.clone(),
     })
 }
 
@@ -108,11 +116,12 @@ fn generate_device_secret() -> String {
 
 #[derive(serde::Serialize)]
 pub struct InitPrefsResult {
-    pub location_set:  bool,
-    pub lat:           f64,
-    pub lon:           f64,
-    pub display_mode:  String,
-    pub device_secret: String,
+    pub location_set:     bool,
+    pub lat:              f64,
+    pub lon:              f64,
+    pub display_mode:     String,
+    pub device_secret:    String,
+    pub tray_icon_color:  String,
 }
 
 /// Persist current prefs to store.
@@ -133,7 +142,19 @@ pub fn save_prefs(
         DisplayMode::Short    => "Short",
         DisplayMode::Full     => "Full",
     });
+    store.set("tray_icon_color", s.tray_icon_color.clone());
     store.save().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_tray_icon_color(
+    state: State<'_, SharedState>,
+    app: tauri::AppHandle,
+    color: String,
+) -> Result<(), String> {
+    state.lock().unwrap().tray_icon_color = color;
+    crate::tray::refresh_tray(&app);
     Ok(())
 }
 

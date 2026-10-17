@@ -67,7 +67,7 @@ pub fn setup_tray(app: &mut App) -> tauri::Result<()> {
     {
         let tmp = std::env::temp_dir().join("astrohour-tray-0");
         let _ = std::fs::create_dir_all(&tmp);
-        let icon = linux_icon::render_to_dir(&initial_text, &tmp)
+        let icon = linux_icon::render_to_dir(&initial_text, &tmp, "white")
             .unwrap_or_else(|| {
                 tauri::image::Image::from_bytes(include_bytes!("../icons/tray-planet.png"))
                     .expect("fallback tray icon missing")
@@ -276,7 +276,9 @@ pub fn refresh_tray(app: &tauri::AppHandle) {
             let tmp_base = std::env::temp_dir().join(format!("astrohour-tray-{}", n));
             let _ = std::fs::create_dir_all(&tmp_base);
 
-            if let Some(icon) = linux_icon::render_to_dir(&text, &tmp_base) {
+            let color = app.state::<SharedState>().lock().unwrap().tray_icon_color.clone();
+
+            if let Some(icon) = linux_icon::render_to_dir(&text, &tmp_base, &color) {
                 let _ = tray.set_icon(None);
                 let _ = tray.set_icon(Some(icon));
             }
@@ -369,15 +371,31 @@ mod linux_icon {
         pb.finish()
     }
 
-    fn render_pixmap(status_text: &str) -> Option<Pixmap> {
+    /// Parse "white", "gold", or "#rrggbb" into RGBA bytes.
+    fn parse_color(color: &str) -> (u8, u8, u8, u8) {
+        match color.trim() {
+            "white"  => (255, 255, 255, 255),
+            "gold"   => (200, 168, 75,  255),
+            s if s.starts_with('#') && s.len() == 7 => {
+                let r = u8::from_str_radix(&s[1..3], 16).unwrap_or(255);
+                let g = u8::from_str_radix(&s[3..5], 16).unwrap_or(255);
+                let b = u8::from_str_radix(&s[5..7], 16).unwrap_or(255);
+                (r, g, b, 255)
+            }
+            _ => (255, 255, 255, 255),
+        }
+    }
+
+    fn render_pixmap(status_text: &str, color: &str) -> Option<Pixmap> {
         let ch   = first_char(status_text);
         let path = build_path(ch)?;
 
         let mut pixmap = Pixmap::new(32, 32)?;
         pixmap.fill(Color::TRANSPARENT);
 
+        let (r, g, b, a) = parse_color(color);
         let mut paint = Paint::default();
-        paint.set_color_rgba8(255, 255, 255, 255);
+        paint.set_color_rgba8(r, g, b, a);
         paint.anti_alias = true;
 
         let stroke = Stroke { width: 1.8, ..Default::default() };
@@ -388,14 +406,14 @@ mod linux_icon {
 
     /// Render into an in-memory Tauri Image (used at startup).
     pub fn render(status_text: &str) -> Option<Image<'static>> {
-        render_pixmap(status_text).map(|p| Image::new_owned(p.take(), 32, 32))
+        render_pixmap(status_text, "white").map(|p| Image::new_owned(p.take(), 32, 32))
     }
 
     /// Render and write the PNG to `dir/icon.png`, then return a Tauri Image
     /// built from that file. Using a caller-supplied dir means the AppIndicator
     /// theme path changes each call, defeating KDE SNI's icon cache.
-    pub fn render_to_dir(status_text: &str, dir: &std::path::Path) -> Option<Image<'static>> {
-        let pixmap = render_pixmap(status_text)?;
+    pub fn render_to_dir(status_text: &str, dir: &std::path::Path, color: &str) -> Option<Image<'static>> {
+        let pixmap = render_pixmap(status_text, color)?;
         let file = dir.join("icon.png");
         pixmap.save_png(&file).ok()?;
         tauri::image::Image::from_path(&file).ok()

@@ -48,6 +48,7 @@
   let displayMode: DisplayMode = 'Short';
   let deviceSecret = '';
   let currentTheme = DEFAULT_THEME;
+  let trayIconColor = 'white';
 
   // Listeners / timers
   let unlisten: (() => void) | null = null;
@@ -63,6 +64,7 @@
     locationSet = prefs.location_set;
     deviceSecret = prefs.device_secret;
     // Apply saved theme (falls back to default if not set)
+    trayIconColor = prefs.tray_icon_color ?? 'white';
     const savedTheme = (prefs as any).theme ?? DEFAULT_THEME;
     currentTheme = savedTheme in themes ? savedTheme : DEFAULT_THEME;
     applyTheme(themes[currentTheme]);
@@ -201,7 +203,7 @@
 
 {:else if showSettings}
   <Settings
-    {lat} {lon} {displayMode} {currentTheme}
+    {lat} {lon} {displayMode} {currentTheme} {trayIconColor}
     on:close={() => showSettings = false}
     on:saved={onSettingsSaved}
     on:themeChange={(e) => {
