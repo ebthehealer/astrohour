@@ -77,13 +77,18 @@
     unlisten = await listen('astro:tick', refresh);
     tickInterval = setInterval(updateMins, 30_000);
 
-    // Dismiss window when it loses focus (macOS popover / Windows tray behaviour)
+    // macOS only: dismiss popover on focus loss (Linux/Windows: user uses × button)
     const appWindow = getCurrentWindow();
-    unlistenFocus = await appWindow.onFocusChanged(({ payload: focused }) => {
-      if (!focused && !showSettings) {
-        appWindow.hide();
+    if ((await appWindow.label()) === 'main') {
+      const platform = navigator.userAgent.toLowerCase();
+      if (platform.includes('mac')) {
+        unlistenFocus = await appWindow.onFocusChanged(({ payload: focused }) => {
+          if (!focused && !showSettings && !showLicense && !showNotesHistory) {
+            appWindow.hide();
+          }
+        });
       }
-    });
+    }
   });
 
   onDestroy(() => {
@@ -257,7 +262,7 @@
         <div class="day-row">
           <span class="day-label">{dayName}</span>
           <span class="ruler">{planetSymbol(dayRuler)} {dayRuler} Day</span>
-          <span class="sun-times">☀️ {sunrise} – {sunset}</span>
+          <span class="sun-times">rise {sunrise} &middot; set {sunset}</span>
         </div>
         <div class="moon-row">
           <span class="phase-emoji">{phaseEmoji(moon.phase)}</span>
@@ -564,25 +569,36 @@
 
   /* ── Footer */
   .loc-footer {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto;
     align-items: center;
-    justify-content: space-between;
-    padding: 7px 16px;
+    padding: 6px 12px;
     background: var(--bg-surface);
     border-top: 1px solid var(--bg-elevated);
     font-size: 11px;
     color: var(--text-secondary);
+    gap: 8px;
   }
-  .footer-actions { display: flex; gap: 10px; align-items: center; }
+  .footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
   .settings-link {
     background: none;
     border: none;
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: 11px;
     cursor: pointer;
     text-decoration: none;
-    padding: 2px 6px;
+    padding: 4px 8px;
     border-radius: 4px;
+    white-space: nowrap;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    line-height: 1.2;
   }
   .settings-link:hover { color: var(--text-primary); background: var(--bg-elevated); }
   .settings-link.premium { color: var(--link-color); }

@@ -170,10 +170,10 @@ mod win_icon {
                 pb.push_circle(10.0, 10.0, 9.0);
                 pb.push_circle(10.0, 10.0, 2.0);
             }
-            // ☽ Moon: crescent (outer circle, then inner offset circle)
+            // ☽ Moon: crescent opening to the right (cutout offset left)
             '\u{263D}' => {
                 pb.push_circle(10.0, 10.0, 9.0);
-                pb.push_circle(13.5, 10.0, 7.0);
+                pb.push_circle(6.5, 10.0, 7.0);
             }
             // ♂ Mars: circle + arrow pointing top-right
             '\u{2642}' => {
@@ -324,10 +324,10 @@ mod linux_icon {
                 pb.push_circle(10.0, 10.0, 8.5);
                 pb.push_circle(10.0, 10.0, 2.5);
             }
-            // ☽ Moon
+            // ☽ Moon: crescent opening to the right
             '\u{263D}' => {
                 pb.push_circle(10.0, 10.0, 8.5);
-                pb.push_circle(13.5, 10.0, 6.5);
+                pb.push_circle(6.5, 10.0, 6.5);
             }
             // ♂ Mars
             '\u{2642}' => {

@@ -226,17 +226,16 @@
   }
   .hist-note-meta {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     gap: 8px;
     margin-bottom: 5px;
+    flex-wrap: wrap;
   }
   .hist-hour {
-    font-size: 11px;
-    font-weight: 600;
+    font-size: 13px;
+    font-weight: 700;
     color: var(--accent);
     cursor: pointer;
-    text-decoration: underline;
-    text-underline-offset: 2px;
   }
   .hist-hour:hover { color: var(--text-primary); }
   .hist-ts {
