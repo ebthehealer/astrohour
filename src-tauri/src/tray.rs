@@ -54,7 +54,7 @@ pub fn setup_tray(app: &mut App) -> tauri::Result<()> {
             _ => {}
         });
 
-    // On Windows, use a rendered glyph icon; on macOS use template icon
+    // Platform-specific icon setup
     #[cfg(target_os = "windows")]
     if let Some(icon) = win_icon::render(&initial_text) {
         builder = builder.icon(icon);
@@ -62,6 +62,14 @@ pub fn setup_tray(app: &mut App) -> tauri::Result<()> {
 
     #[cfg(target_os = "macos")]
     { builder = builder.icon_as_template(true); }
+
+    #[cfg(target_os = "linux")]
+    {
+        let icon = tauri::image::Image::from_bytes(
+            include_bytes!("../icons/32x32.png")
+        ).expect("tray icon missing");
+        builder = builder.icon(icon);
+    }
 
     builder.build(app)?;
     Ok(())

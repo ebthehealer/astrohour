@@ -70,6 +70,13 @@ pub fn run() {
             commands::deactivate_license,
             commands::restore_license,
         ])
+        // Hide to tray on window close instead of quitting
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running AstroHour");
 }
