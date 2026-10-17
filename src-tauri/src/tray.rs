@@ -357,8 +357,8 @@ mod linux_icon {
         pixmap.fill(Color::TRANSPARENT);
 
         let mut paint = Paint::default();
-        // Bright gold — visible on both dark and light panels
-        paint.set_color_rgba8(220, 185, 90, 255);
+        // White — standard for system tray icons, visible on dark/light panels
+        paint.set_color_rgba8(255, 255, 255, 255);
         paint.anti_alias = true;
 
         let stroke = Stroke { width: 1.8, ..Default::default() };

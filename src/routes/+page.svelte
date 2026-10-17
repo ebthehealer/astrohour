@@ -10,6 +10,7 @@
   import FirstRun from '$lib/FirstRun.svelte';
   import Settings from '$lib/Settings.svelte';
   import Notes from '$lib/Notes.svelte';
+  import NotesHistory from '$lib/NotesHistory.svelte';
   import License from '$lib/License.svelte';
   import { makePlanetKey, todayString, getLicenseStatus, type LicenseStatus } from '$lib/api';
   import { themes, applyTheme, DEFAULT_THEME } from '$lib/themes';
@@ -19,6 +20,7 @@
   let locationSet = false;    // has a real location (not fallback default)
   let showSettings = false;
   let showLicense  = false;
+  let showNotesHistory = false;
 
   // Notes overlay state
   let notesKey:  string | null = null;  // planet_key being edited
@@ -169,6 +171,12 @@
 {:else if !locationSet}
   <FirstRun on:done={onFirstRunDone} />
 
+{:else if showNotesHistory}
+  <NotesHistory
+    onClose={() => showNotesHistory = false}
+    onOpenNote={(key, name) => { showNotesHistory = false; notesKey = key; notesName = name; }}
+  />
+
 {:else if notesKey && notesName}
   <Notes
     planetKey={notesKey}
@@ -202,20 +210,42 @@
       </div>
     {:else}
 
-      <!-- ── Header: current hour -->
-      <header class="current-hour">
+      <!-- ── Header: current hour (draggable title bar since decorations=false) -->
+      <header class="current-hour" data-tauri-drag-region>
         <span class="symbol">{planetSymbol(currentHour.planet)}</span>
-        <div class="hour-info">
-          <div class="hour-name">
-            {currentHour.planet} Hour
-            <span class="day-night">{currentHour.is_day ? 'Day' : 'Night'} {currentHour.sequence} of 12</span>
-          </div>
-          <div class="hour-times">
-            {formatTime(currentHour.start)} → {formatTime(currentHour.end)}
-            <span class="mins">{minsRemaining}m left</span>
-          </div>
+        <div class="hour-info" data-tauri-drag-region>
+          {#if displayMode === 'IconOnly'}
+            <div class="hour-name" data-tauri-drag-region>
+              {currentHour.planet} Hour
+              <span class="day-night">{currentHour.is_day ? '☀' : '🌙'} {currentHour.sequence}/12</span>
+            </div>
+          {:else if displayMode === 'Short'}
+            <div class="hour-name" data-tauri-drag-region>
+              {currentHour.planet} Hour
+              <span class="day-night">{currentHour.is_day ? 'Day' : 'Night'} {currentHour.sequence} of 12</span>
+            </div>
+            <div class="hour-times" data-tauri-drag-region>
+              {formatTime(currentHour.start)} → {formatTime(currentHour.end)}
+              <span class="mins">{minsRemaining}m left</span>
+            </div>
+          {:else}
+            <div class="hour-name" data-tauri-drag-region>
+              {currentHour.planet} Hour
+              <span class="day-night">{currentHour.is_day ? 'Day' : 'Night'} {currentHour.sequence} of 12</span>
+            </div>
+            <div class="hour-times" data-tauri-drag-region>
+              {formatTime(currentHour.start)} → {formatTime(currentHour.end)}
+              <span class="mins">{minsRemaining}m left</span>
+            </div>
+            <div class="hour-extra" data-tauri-drag-region>
+              {phaseName(moon.phase)} · Moon Day {moon.lunar_day} · {Math.round(moon.illumination*100)}%
+            </div>
+          {/if}
         </div>
-        <button class="gear" on:click={() => showSettings = true} title="Settings">⚙️</button>
+        <div class="win-controls">
+          <button class="gear" on:click={() => showSettings = true} title="Settings">⚙️</button>
+          <button class="win-btn close" on:click={() => getCurrentWindow().hide()} title="Close">&#x2715;</button>
+        </div>
       </header>
 
       <!-- ── Day ruler + sun + moon -->
@@ -282,6 +312,7 @@
           {:else if !isPremium}
             <button class="settings-link premium" on:click={() => showLicense = true}>✨ Premium</button>
           {/if}
+          <button class="settings-link" on:click={() => showNotesHistory = true}>📓 Notes</button>
           <button class="settings-link" on:click={() => showSettings = true}>Settings</button>
         </div>
       </footer>
@@ -392,6 +423,11 @@
     margin-top: 3px;
   }
   .mins { color: var(--accent); margin-left: 8px; font-weight: 600; }
+  .hour-extra {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
   .gear {
     background: none;
     border: none;
@@ -403,6 +439,25 @@
     color: var(--text-primary);
   }
   .gear:hover { opacity: 1; }
+  /* Window controls (frameless) */
+  .win-controls {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .win-btn {
+    background: none;
+    border: none;
+    font-size: 13px;
+    line-height: 1;
+    padding: 3px 5px;
+    cursor: pointer;
+    border-radius: 4px;
+    color: var(--text-muted);
+  }
+  .win-btn:hover { background: var(--bg-elevated); color: var(--text-primary); }
+  .win-btn.close:hover { background: var(--danger); color: #fff; }
 
   /* ── Day + moon */
   .day-moon {
@@ -496,15 +551,17 @@
   .h-note {
     background: none;
     border: none;
-    color: var(--text-muted);
+    color: var(--text-secondary);
     font-size: 13px;
     cursor: pointer;
     padding: 0;
-    opacity: 0;
-    transition: opacity 0.15s;
+    opacity: 0.3;
+    transition: opacity 0.15s, color 0.15s;
   }
-  .hour-row:hover .h-note { opacity: 0.6; }
+  .hour-row:hover .h-note { opacity: 0.75; }
   .h-note:hover { opacity: 1 !important; color: var(--accent); }
+  /* Note present indicator */
+  .h-note.has-note { color: var(--accent); opacity: 0.6; }
 
   /* ── Footer */
   .loc-footer {
