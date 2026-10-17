@@ -7,12 +7,18 @@
     type DisplayMode,
   } from './api';
   import { detectLocation } from './geo';
+  import { themes, type Theme } from './themes';
 
   export let lat: number;
   export let lon: number;
   export let displayMode: DisplayMode;
+  export let currentTheme: string = 'midnight';
 
-  const dispatch = createEventDispatcher<{ close: void; saved: { lat: number; lon: number; displayMode: DisplayMode } }>();
+  const dispatch = createEventDispatcher<{
+    close: void;
+    saved: { lat: number; lon: number; displayMode: DisplayMode };
+    themeChange: string;
+  }>();
 
   // ── Local form state
   let latStr = lat.toFixed(6);
@@ -131,6 +137,30 @@
       </div>
     </section>
 
+    <!-- Theme -->
+    <section>
+      <div class="section-title">Color Theme</div>
+      <div class="theme-grid">
+        {#each Object.values(themes) as t}
+          <button
+            class="theme-swatch"
+            class:selected={currentTheme === t.name}
+            style="background:{t.bgBase}; border-color:{currentTheme === t.name ? t.accent : t.bgElevated};"
+            on:click={() => dispatch('themeChange', t.name)}
+            title={t.label}
+          >
+            <span style="color:{t.accent};">♃</span>
+            <span style="color:{t.textPrimary}; font-size:10px;">{t.label}</span>
+            <div class="swatch-dots">
+              <div style="background:{t.accent};"></div>
+              <div style="background:{t.planetNight};"></div>
+              <div style="background:{t.bgElevated};"></div>
+            </div>
+          </button>
+        {/each}
+      </div>
+    </section>
+
     <!-- Autostart -->
     <section>
       <div class="section-title">System</div>
@@ -168,7 +198,7 @@
     z-index: 100;
   }
   .settings-panel {
-    background: #16213e;
+    background: var(--bg-surface, #16213e);
     width: 360px;
     max-height: 100vh;
     overflow-y: auto;
@@ -182,30 +212,30 @@
     padding: 14px 16px;
     font-weight: 700;
     font-size: 14px;
-    border-bottom: 1px solid #0f3460;
-    color: #fff;
+    border-bottom: 1px solid var(--bg-elevated, #0f3460);
+    color: var(--text-primary, #fff);
   }
   .close-btn {
     background: none;
     border: none;
-    color: #aaa;
+    color: var(--text-secondary, #aaa);
     font-size: 20px;
     cursor: pointer;
     line-height: 1;
     padding: 0 4px;
   }
-  .close-btn:hover { color: #fff; }
+  .close-btn:hover { color: var(--text-primary, #fff); }
 
   section {
     padding: 14px 16px;
-    border-bottom: 1px solid #0f3460;
+    border-bottom: 1px solid var(--bg-elevated, #0f3460);
   }
   .section-title {
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #556;
+    color: var(--text-muted, #556);
     margin-bottom: 10px;
   }
 
@@ -213,15 +243,15 @@
   .geo-btn {
     width: 100%;
     padding: 8px;
-    background: #0f3460;
-    border: 1px solid #1a4a80;
+    background: var(--bg-elevated, #0f3460);
+    border: 1px solid var(--bg-highlight, #1a4a80);
     border-radius: 6px;
-    color: #e0b86a;
+    color: var(--accent, #e0b86a);
     font-size: 13px;
     cursor: pointer;
     margin-bottom: 8px;
   }
-  .geo-btn:hover:not(:disabled) { background: #1a4a80; }
+  .geo-btn:hover:not(:disabled) { background: var(--bg-highlight, #1a4a80); }
   .geo-btn:disabled { opacity: 0.5; cursor: wait; }
   .geo-msg {
     font-size: 11px;
@@ -229,8 +259,8 @@
     border-radius: 4px;
     margin-bottom: 8px;
   }
-  .geo-msg.ok  { background: #0d3320; color: #5dba7d; }
-  .geo-msg.err { background: #3a1010; color: #e06060; }
+  .geo-msg.ok  { background: var(--bg-elevated); color: var(--success, #5dba7d); }
+  .geo-msg.err { background: var(--bg-elevated); color: var(--danger, #e06060); }
 
   /* Coord inputs */
   .field-row {
@@ -242,23 +272,23 @@
   .field-row label {
     width: 70px;
     font-size: 12px;
-    color: #aaa;
+    color: var(--text-secondary, #aaa);
     flex-shrink: 0;
   }
   .field-row input {
     flex: 1;
-    background: #0f1f3d;
-    border: 1px solid #1a4a80;
+    background: var(--bg-base, #0f1f3d);
+    border: 1px solid var(--bg-highlight, #1a4a80);
     border-radius: 5px;
     padding: 6px 8px;
-    color: #fff;
+    color: var(--text-primary, #fff);
     font-size: 13px;
     outline: none;
   }
-  .field-row input:focus { border-color: #e0b86a; }
+  .field-row input:focus { border-color: var(--accent, #e0b86a); }
   .coord-display {
     font-size: 11px;
-    color: #556;
+    color: var(--text-muted, #556);
     margin-top: 4px;
   }
 
@@ -274,16 +304,16 @@
     gap: 10px;
     padding: 8px 10px;
     border-radius: 6px;
-    border: 1px solid #1a3055;
+    border: 1px solid var(--bg-elevated, #1a3055);
     cursor: pointer;
   }
   .mode-option.selected {
-    border-color: #e0b86a;
-    background: #1a3a5c;
+    border-color: var(--accent, #e0b86a);
+    background: var(--bg-highlight, #1a3a5c);
   }
   .mode-option input[type=radio] { display: none; }
-  .mode-label { font-size: 13px; color: #ddd; flex: 1; }
-  .mode-name { font-size: 10px; color: #556; }
+  .mode-label { font-size: 13px; color: var(--text-primary, #ddd); flex: 1; }
+  .mode-name { font-size: 10px; color: var(--text-muted, #556); }
 
   /* Toggle */
   .toggle-row {
@@ -291,20 +321,20 @@
     align-items: center;
     justify-content: space-between;
     font-size: 13px;
-    color: #ddd;
+    color: var(--text-primary, #ddd);
     cursor: pointer;
     user-select: none;
   }
   .toggle {
     width: 40px;
     height: 22px;
-    background: #1a3055;
+    background: var(--bg-elevated, #1a3055);
     border-radius: 11px;
     position: relative;
     transition: background 0.2s;
     cursor: pointer;
   }
-  .toggle.on { background: #e0b86a; }
+  .toggle.on { background: var(--accent, #e0b86a); }
   .toggle-thumb {
     position: absolute;
     top: 3px;
@@ -336,9 +366,41 @@
     cursor: pointer;
     border: none;
   }
-  .btn-cancel { background: #0f3460; color: #aaa; }
-  .btn-cancel:hover { color: #fff; }
-  .btn-save { background: #e0b86a; color: #1a1a2e; font-weight: 700; }
-  .btn-save:hover:not(:disabled) { background: #f0cc8a; }
+  .btn-cancel { background: var(--bg-elevated, #0f3460); color: var(--text-secondary, #aaa); }
+  .btn-cancel:hover { color: var(--text-primary, #fff); }
+  .btn-save { background: var(--accent, #e0b86a); color: var(--text-inverse, #1a1a2e); font-weight: 700; }
+  .btn-save:hover:not(:disabled) { filter: brightness(1.1); }
   .btn-save:disabled { opacity: 0.5; cursor: wait; }
+
+  /* Theme swatches */
+  .theme-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 4px 0;
+  }
+  .theme-swatch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 8px 8px;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    font-size: 22px;
+    transition: border-color 0.15s, transform 0.1s;
+  }
+  .theme-swatch:hover { transform: scale(1.03); }
+  .theme-swatch.selected { box-shadow: 0 0 0 2px rgba(255,255,255,0.15); }
+  .swatch-dots {
+    display: flex;
+    gap: 4px;
+    margin-top: 2px;
+  }
+  .swatch-dots div {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
 </style>
