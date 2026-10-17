@@ -260,12 +260,15 @@ pub fn refresh_tray(app: &tauri::AppHandle) {
         // Linux: re-render glyph, fall back to ringed planet PNG
         #[cfg(target_os = "linux")]
         {
+            eprintln!("[astrohour] refresh_tray: text={text:?}");
             let icon = linux_icon::render(&text)
                 .unwrap_or_else(|| {
+                    eprintln!("[astrohour] linux_icon::render failed, using fallback PNG");
                     tauri::image::Image::from_bytes(include_bytes!("../icons/tray-planet.png"))
                         .expect("fallback tray icon missing")
                 });
-            let _ = tray.set_icon(Some(icon));
+            let r = tray.set_icon(Some(icon));
+            eprintln!("[astrohour] set_icon result: {:?}", r);
         }
     }
 

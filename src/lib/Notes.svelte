@@ -14,9 +14,10 @@
   import Database from '@tauri-apps/plugin-sql';
   import type { Note } from './api';
 
-  export let planetKey:  string;
-  export let planetName: string;
-  export let onClose:    () => void;
+  export let planetKey:   string;
+  export let planetName:  string;  // e.g. "Mercury Hour"
+  export let planetGlyph: string = ''; // e.g. "☿"
+  export let onClose:     () => void;
 
   const DB_URL = 'sqlite:astrohour.db';
 
@@ -64,9 +65,10 @@
         );
         editing = null;
       } else {
+        const label = planetGlyph ? `${planetGlyph} ${planetName}` : planetName;
         await conn.execute(
-          'INSERT INTO notes (planet_key, body) VALUES (?, ?)',
-          [planetKey, draft]
+          'INSERT INTO notes (planet_key, body, planet_name) VALUES (?, ?, ?)',
+          [planetKey, draft, label]
         );
       }
       draft = '';
