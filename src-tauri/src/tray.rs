@@ -371,11 +371,13 @@ mod linux_icon {
         pb.finish()
     }
 
-    /// Parse "white", "gold", or "#rrggbb" into RGBA bytes.
+    /// Parse color string into RGBA bytes.
+    /// Accepts: "auto" | "white" | "gold" | "#rrggbb"
+    /// "auto" uses white — correct for SNI on dark panels; the DE composites it.
     fn parse_color(color: &str) -> (u8, u8, u8, u8) {
         match color.trim() {
-            "white"  => (255, 255, 255, 255),
-            "gold"   => (200, 168, 75,  255),
+            "auto" | "white" => (255, 255, 255, 255),
+            "gold"           => (200, 168, 75,  255),
             s if s.starts_with('#') && s.len() == 7 => {
                 let r = u8::from_str_radix(&s[1..3], 16).unwrap_or(255);
                 let g = u8::from_str_radix(&s[3..5], 16).unwrap_or(255);

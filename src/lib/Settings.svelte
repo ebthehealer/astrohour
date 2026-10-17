@@ -16,11 +16,19 @@
   export let currentTheme: string = 'midnight';
   export let trayIconColor: string = 'white';
 
+  // 'auto' = white, letting the DE composite it (correct for SNI on dark panels).
+  // 'accent' = resolved at render time from the current theme's --accent variable.
   const TRAY_COLORS = [
-    { id: 'white',  label: 'White',  hex: '#ffffff' },
-    { id: 'gold',   label: 'Gold',   hex: '#c8a84b' },
-    { id: '#aaaaaa', label: 'Grey', hex: '#aaaaaa' },
+    { id: 'auto',    label: 'Auto',   hex: '#ffffff', note: 'Follows system panel' },
+    { id: 'accent',  label: 'Accent', hex: '',        note: 'Current theme color'  },
+    { id: 'white',   label: 'White',  hex: '#ffffff', note: '' },
+    { id: 'gold',    label: 'Gold',   hex: '#c8a84b', note: '' },
+    { id: '#aaaaaa', label: 'Grey',   hex: '#aaaaaa', note: '' },
   ];
+
+  // Resolve the current theme's accent hex for live preview
+  $: accentHex = getComputedStyle(document.documentElement)
+    .getPropertyValue('--accent').trim() || '#c8a84b';
 
   const dispatch = createEventDispatcher<{
     close: void;
@@ -150,14 +158,20 @@
       <div class="section-title">Tray Icon Color</div>
       <div class="tray-color-row">
         {#each TRAY_COLORS as c}
+          {@const dotColor = c.id === 'accent' ? accentHex : (c.hex || accentHex)}
+          {@const borderColor = trayIconColor === c.id ? dotColor : 'transparent'}
           <button
             class="tray-color-btn"
             class:selected={trayIconColor === c.id}
-            style="border-color:{trayIconColor === c.id ? c.hex : 'transparent'};"
-            on:click={async () => { trayIconColor = c.id; await setTrayIconColor(c.id); }}
-            title={c.label}
+            style="border-color:{borderColor};"
+            on:click={async () => {
+              trayIconColor = c.id;
+              const resolved = c.id === 'accent' ? accentHex : c.id;
+              await setTrayIconColor(resolved);
+            }}
+            title={c.note || c.label}
           >
-            <span class="tray-dot" style="background:{c.hex};"></span>
+            <span class="tray-dot" style="background:{dotColor}; box-shadow: 0 0 0 1px rgba(255,255,255,0.15);"></span>
             <span class="tray-label">{c.label}</span>
           </button>
         {/each}
