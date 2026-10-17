@@ -151,7 +151,7 @@
         placeholder={editing ? 'Edit note…' : 'Add a note for this hour…'}
         rows="3"
         on:keydown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveNote(); }}
-      />
+      ></textarea>
       <div class="editor-actions">
         {#if editing}
           <button class="btn-sm" on:click={cancelEdit}>Cancel</button>

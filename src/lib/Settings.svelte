@@ -134,9 +134,9 @@
     <!-- Autostart -->
     <section>
       <div class="section-title">System</div>
-      <label class="toggle-row">
+      <label class="toggle-row" for="autostart-toggle">
         <span>Launch at login</span>
-        <div class="toggle" class:on={autostart} on:click={() => autostart = !autostart}
+        <div id="autostart-toggle" class="toggle" class:on={autostart} on:click={() => autostart = !autostart}
           role="switch" aria-checked={autostart} tabindex="0"
           on:keydown={(e) => e.key === 'Enter' && (autostart = !autostart)}>
           <div class="toggle-thumb"></div>

@@ -287,7 +287,9 @@
     font-size: 13px;
     background: #1a1a2e;
     color: #e0e0e0;
-    overflow-x: hidden;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
   }
 
   /* Splash */
@@ -319,10 +321,11 @@
   @keyframes spin { to { transform: rotate(360deg); } }
 
   main {
-    width: 360px;
-    min-height: 100vh;
+    width: 100%;
+    height: 100vh;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
   }
 
   /* ── Current hour header */
@@ -393,7 +396,7 @@
   .lunar-day { font-size: 11px; color: #aaa; }
 
   /* ── Hours list */
-  .all-hours { flex: 1; overflow-y: auto; }
+  .all-hours { flex: 1; overflow-y: auto; min-height: 0; }
   .hours-label {
     font-size: 10px;
     font-weight: 700;
