@@ -33,7 +33,7 @@ pub fn setup_tray(app: &mut App) -> tauri::Result<()> {
 
     let initial_text = initial_tray_text(app);
 
-    let mut builder = TrayIconBuilder::new()
+    let mut builder = TrayIconBuilder::with_id("main")
         .menu(&menu)
         .tooltip("AstroHour")
         .title(&initial_text)   // shown as menu-bar text on macOS
