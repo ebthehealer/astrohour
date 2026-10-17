@@ -11,19 +11,19 @@
   },
   "app": {
     "windows": [
-            {
-                "title": "AstroHour",
-                "width": 380,
-                "height": 520,
-                "minWidth": 320,
-                "minHeight": 400,
-                "maxWidth": 600,
-                "maxHeight": 800,
-                "resizable": true,
-                "decorations": true,
-                "visible": false,
-                "center": true
-            }
+      {
+        "title": "AstroHour",
+        "width": 380,
+        "height": 520,
+        "minWidth": 320,
+        "minHeight": 400,
+        "maxWidth": 600,
+        "maxHeight": 800,
+        "resizable": true,
+        "decorations": false,
+        "visible": false,
+        "center": true
+      }
     ],
     "trayIcon": {
       "id": "main",

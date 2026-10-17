@@ -101,7 +101,9 @@
   }
 
   function formatDate(iso: string) {
-    return new Date(iso).toLocaleString([], {
+    // SQLite stores UTC without 'Z' — append it so JS parses correctly
+    const fixed = iso.endsWith('Z') || iso.includes('+') ? iso : iso + 'Z';
+    return new Date(fixed).toLocaleString([], {
       month: 'short', day: 'numeric',
       hour: '2-digit', minute: '2-digit'
     });
@@ -169,7 +171,7 @@
   .backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.55);
+    background: rgba(0,0,0,0.6);
     display: flex;
     align-items: flex-end;
     z-index: 100;
@@ -177,24 +179,26 @@
   .panel {
     width: 100%;
     max-height: 80vh;
-    background: #1a1a2e;
+    background: var(--bg-surface);
     border-radius: 14px 14px 0 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    box-shadow: 0 -8px 32px rgba(0,0,0,0.5);
   }
   .header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 14px 16px 10px;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
+    border-bottom: 1px solid var(--bg-elevated);
   }
-  .title { font-weight: 600; font-size: 0.95rem; color: #e0d8f8; }
+  .title { font-weight: 600; font-size: 0.95rem; color: var(--text-primary); }
   .close {
-    background: none; border: none; color: #888;
+    background: none; border: none; color: var(--text-secondary);
     font-size: 1.3rem; cursor: pointer; padding: 0 4px;
   }
+  .close:hover { color: var(--text-primary); }
   .list {
     flex: 1;
     overflow-y: auto;
@@ -203,62 +207,64 @@
     flex-direction: column;
     gap: 8px;
   }
-  .empty { color: #666; font-size: 0.85rem; text-align: center; margin: 16px 0; }
+  .empty { color: var(--text-muted); font-size: 0.85rem; text-align: center; margin: 16px 0; }
   .note {
-    background: rgba(255,255,255,0.05);
+    background: var(--bg-elevated);
     border-radius: 8px;
     padding: 10px 12px;
     border: 1px solid transparent;
   }
-  .note.editing { border-color: #7c6fcd; }
-  .body { margin: 0 0 6px; font-size: 0.88rem; color: #d4cff0; white-space: pre-wrap; }
+  .note.editing { border-color: var(--accent); }
+  .body { margin: 0 0 6px; font-size: 0.88rem; color: var(--text-primary); white-space: pre-wrap; }
   .meta {
     display: flex;
     align-items: center;
     gap: 8px;
     font-size: 0.75rem;
   }
-  .ts { color: #666; flex: 1; }
+  .ts { color: var(--text-muted); flex: 1; }
   .editor {
     padding: 12px 16px;
-    border-top: 1px solid rgba(255,255,255,0.08);
+    border-top: 1px solid var(--bg-elevated);
     display: flex;
     flex-direction: column;
     gap: 8px;
   }
   textarea {
     width: 100%;
-    background: rgba(255,255,255,0.07);
-    border: 1px solid rgba(255,255,255,0.12);
+    background: var(--bg-base);
+    border: 1px solid var(--bg-elevated);
     border-radius: 8px;
-    color: #e0d8f8;
+    color: var(--text-primary);
     font-size: 0.88rem;
     padding: 8px 10px;
     resize: none;
     box-sizing: border-box;
     font-family: inherit;
   }
-  textarea:focus { outline: none; border-color: #7c6fcd; }
+  textarea:focus { outline: none; border-color: var(--accent); }
   .editor-actions { display: flex; justify-content: flex-end; gap: 8px; }
   .btn-primary {
-    background: #7c6fcd;
-    color: #fff;
+    background: var(--accent);
+    color: var(--text-inverse);
     border: none;
     border-radius: 6px;
     padding: 6px 16px;
     font-size: 0.85rem;
     cursor: pointer;
+    font-weight: 600;
   }
   .btn-primary:disabled { opacity: 0.5; cursor: default; }
   .btn-sm {
-    background: rgba(255,255,255,0.08);
-    color: #ccc;
+    background: var(--bg-highlight);
+    color: var(--text-secondary);
     border: none;
     border-radius: 5px;
     padding: 3px 10px;
     font-size: 0.78rem;
     cursor: pointer;
   }
-  .btn-sm.danger { color: #e06c75; }
-  .error { color: #e06c75; font-size: 0.8rem; padding: 6px 16px; }
+  .btn-sm:hover { color: var(--text-primary); }
+  .btn-sm.danger { color: var(--danger); }
+  .error { color: var(--danger); font-size: 0.8rem; padding: 6px 16px; }
 </style>
