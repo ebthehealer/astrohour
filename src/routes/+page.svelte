@@ -211,41 +211,40 @@
     {:else}
 
       <!-- ── Header: current hour (draggable title bar since decorations=false) -->
-      <header class="current-hour" data-tauri-drag-region>
-        <span class="symbol">{planetSymbol(currentHour.planet)}</span>
-        <div class="hour-info" data-tauri-drag-region>
-          {#if displayMode === 'IconOnly'}
-            <div class="hour-name" data-tauri-drag-region>
-              {currentHour.planet} Hour
-              <span class="day-night">{currentHour.is_day ? '☀' : '🌙'} {currentHour.sequence}/12</span>
-            </div>
-          {:else if displayMode === 'Short'}
-            <div class="hour-name" data-tauri-drag-region>
-              {currentHour.planet} Hour
-              <span class="day-night">{currentHour.is_day ? 'Day' : 'Night'} {currentHour.sequence} of 12</span>
-            </div>
-            <div class="hour-times" data-tauri-drag-region>
-              {formatTime(currentHour.start)} → {formatTime(currentHour.end)}
-              <span class="mins">{minsRemaining}m left</span>
-            </div>
-          {:else}
-            <div class="hour-name" data-tauri-drag-region>
-              {currentHour.planet} Hour
-              <span class="day-night">{currentHour.is_day ? 'Day' : 'Night'} {currentHour.sequence} of 12</span>
-            </div>
-            <div class="hour-times" data-tauri-drag-region>
-              {formatTime(currentHour.start)} → {formatTime(currentHour.end)}
-              <span class="mins">{minsRemaining}m left</span>
-            </div>
-            <div class="hour-extra" data-tauri-drag-region>
-              {phaseName(moon.phase)} · Moon Day {moon.lunar_day} · {Math.round(moon.illumination*100)}%
-            </div>
-          {/if}
+      <header class="current-hour">
+        <div class="drag-region" data-tauri-drag-region>
+          <span class="symbol">{planetSymbol(currentHour.planet)}</span>
+          <div class="hour-info">
+            {#if displayMode === 'IconOnly'}
+              <div class="hour-name">
+                {currentHour.planet} Hour
+                <span class="day-night">{currentHour.is_day ? '☀' : '🌙'} {currentHour.sequence}/12</span>
+              </div>
+            {:else if displayMode === 'Short'}
+              <div class="hour-name">
+                {currentHour.planet} Hour
+                <span class="day-night">{currentHour.is_day ? 'Day' : 'Night'} {currentHour.sequence} of 12</span>
+              </div>
+              <div class="hour-times">
+                {formatTime(currentHour.start)} → {formatTime(currentHour.end)}
+                <span class="mins">{minsRemaining}m left</span>
+              </div>
+            {:else}
+              <div class="hour-name">
+                {currentHour.planet} Hour
+                <span class="day-night">{currentHour.is_day ? 'Day' : 'Night'} {currentHour.sequence} of 12</span>
+              </div>
+              <div class="hour-times">
+                {formatTime(currentHour.start)} → {formatTime(currentHour.end)}
+                <span class="mins">{minsRemaining}m left</span>
+              </div>
+              <div class="hour-extra">
+                {phaseName(moon.phase)} · Moon Day {moon.lunar_day} · {Math.round(moon.illumination*100)}%
+              </div>
+            {/if}
+          </div>
         </div>
-        <div class="win-controls">
-          <button class="gear" on:click={() => showSettings = true} title="Settings">⚙️</button>
-          <button class="win-btn close" on:click={() => getCurrentWindow().hide()} title="Close">&#x2715;</button>
-        </div>
+        <button class="win-btn close" on:click={async () => { await getCurrentWindow().hide(); }} title="Close to tray">&#x2715;</button>
       </header>
 
       <!-- ── Day ruler + sun + moon -->
@@ -313,7 +312,7 @@
             <button class="settings-link premium" on:click={() => showLicense = true}>✨ Premium</button>
           {/if}
           <button class="settings-link" on:click={() => showNotesHistory = true}>📓 Notes</button>
-          <button class="settings-link" on:click={() => showSettings = true}>Settings</button>
+          <button class="settings-link" on:click={() => showSettings = true}>⚙️ Settings</button>
         </div>
       </footer>
 
@@ -394,11 +393,23 @@
   .current-hour {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 14px 14px 14px 16px;
+    gap: 0;
+    padding: 0;
     background: var(--bg-surface);
     border-bottom: 1px solid var(--bg-elevated);
   }
+  /* Drag region fills the header, contains symbol + info */
+  .drag-region {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    padding: 14px 8px 14px 16px;
+    cursor: grab;
+  }
+  .drag-region:active { cursor: grabbing; }
+  [data-tauri-drag-region], .drag-region { -webkit-app-region: drag; }
+  button, a, input, textarea, select { -webkit-app-region: no-drag; }
   .symbol {
     font-size: 36px;
     color: var(--accent);
@@ -428,35 +439,20 @@
     color: var(--text-muted);
     margin-top: 2px;
   }
-  .gear {
+  /* Close button (frameless window) */
+  .win-btn.close {
     background: none;
     border: none;
-    font-size: 18px;
-    cursor: pointer;
-    padding: 4px;
-    opacity: 0.5;
-    flex-shrink: 0;
-    color: var(--text-primary);
-  }
-  .gear:hover { opacity: 1; }
-  /* Window controls (frameless) */
-  .win-controls {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    flex-shrink: 0;
-  }
-  .win-btn {
-    background: none;
-    border: none;
-    font-size: 13px;
+    font-size: 15px;
     line-height: 1;
-    padding: 3px 5px;
+    padding: 6px 10px;
     cursor: pointer;
-    border-radius: 4px;
     color: var(--text-muted);
+    flex-shrink: 0;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
   }
-  .win-btn:hover { background: var(--bg-elevated); color: var(--text-primary); }
   .win-btn.close:hover { background: var(--danger); color: #fff; }
 
   /* ── Day + moon */
@@ -498,14 +494,14 @@
     border-left: 3px solid var(--accent);
     padding-left: 13px;
   }
-  /* past hours: still readable, just slightly muted */
-  .hour-row.past  { opacity: 0.55; }
-  /* night hours: faint blue tint on the symbol only, row stays readable */
-  .h-sym  { color: var(--accent); font-size: 14px; text-align: center; }
+  /* past hours: still readable */
+  .hour-row.past  { opacity: 0.6; }
+  /* night hours: symbol tinted, text unchanged */
+  .h-sym  { color: var(--accent); font-size: 15px; text-align: center; }
   .hour-row.night .h-sym { color: var(--planet-night); }
-  .h-time { color: var(--text-secondary); font-size: 11px; font-variant-numeric: tabular-nums; }
-  .h-name { color: var(--text-primary); }
-  .h-seq  { color: var(--text-muted); font-size: 11px; text-align: right; }
+  .h-time { color: var(--text-secondary); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .h-name { color: var(--text-primary); font-size: 13px; }
+  .h-seq  { color: var(--text-secondary); font-size: 11px; text-align: right; }
   .h-now  { color: var(--accent); font-size: 10px; font-weight: 700; }
 
   /* ── Time travel bar */
@@ -552,16 +548,17 @@
     background: none;
     border: none;
     color: var(--text-secondary);
-    font-size: 13px;
+    font-size: 14px;
     cursor: pointer;
-    padding: 0;
-    opacity: 0.3;
+    padding: 2px 4px;
+    opacity: 0.5;
     transition: opacity 0.15s, color 0.15s;
+    border-radius: 3px;
   }
-  .hour-row:hover .h-note { opacity: 0.75; }
-  .h-note:hover { opacity: 1 !important; color: var(--accent); }
+  .hour-row:hover .h-note { opacity: 0.85; }
+  .h-note:hover { opacity: 1 !important; color: var(--accent); background: var(--bg-elevated); }
   /* Note present indicator */
-  .h-note.has-note { color: var(--accent); opacity: 0.6; }
+  .h-note.has-note { color: var(--accent); opacity: 0.8; }
 
   /* ── Footer */
   .loc-footer {
@@ -569,24 +566,25 @@
     align-items: center;
     justify-content: space-between;
     padding: 7px 16px;
-    background: var(--bg-base);
-    border-top: 1px solid var(--bg-surface);
+    background: var(--bg-surface);
+    border-top: 1px solid var(--bg-elevated);
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--text-secondary);
   }
   .footer-actions { display: flex; gap: 10px; align-items: center; }
   .settings-link {
     background: none;
     border: none;
-    color: var(--text-muted);
-    font-size: 11px;
+    color: var(--text-secondary);
+    font-size: 12px;
     cursor: pointer;
-    text-decoration: underline;
-    padding: 0;
+    text-decoration: none;
+    padding: 2px 6px;
+    border-radius: 4px;
   }
-  .settings-link:hover { color: var(--accent); }
+  .settings-link:hover { color: var(--text-primary); background: var(--bg-elevated); }
   .settings-link.premium { color: var(--link-color); }
-  .settings-link.premium:hover { color: var(--accent); }
-  .settings-link.donation { color: var(--danger); text-decoration: none; }
-  .settings-link.donation:hover { color: var(--accent); }
+  .settings-link.premium:hover { color: var(--accent); background: var(--bg-elevated); }
+  .settings-link.donation { color: var(--danger); }
+  .settings-link.donation:hover { color: var(--accent); background: var(--bg-elevated); }
 </style>
