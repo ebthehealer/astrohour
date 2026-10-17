@@ -65,7 +65,9 @@ pub fn setup_tray(app: &mut App) -> tauri::Result<()> {
 
     #[cfg(target_os = "linux")]
     {
-        let icon = linux_icon::render(&initial_text)
+        let tmp = std::env::temp_dir().join("astrohour-tray-0");
+        let _ = std::fs::create_dir_all(&tmp);
+        let icon = linux_icon::render_to_dir(&initial_text, &tmp)
             .unwrap_or_else(|| {
                 tauri::image::Image::from_bytes(include_bytes!("../icons/tray-planet.png"))
                     .expect("fallback tray icon missing")
@@ -236,6 +238,12 @@ mod win_icon {
     }
 }
 
+// ── Linux tray temp dir counter (unique dir per refresh forces SNI re-fetch) ─
+
+#[cfg(target_os = "linux")]
+static TRAY_COUNTER: std::sync::atomic::AtomicU32 =
+    std::sync::atomic::AtomicU32::new(1);
+
 // ── Periodic refresh (called by timer every 30s) ─────────────────────────────
 
 pub fn refresh_tray(app: &tauri::AppHandle) {
@@ -257,18 +265,27 @@ pub fn refresh_tray(app: &tauri::AppHandle) {
             let _ = tray.set_icon(Some(icon));
         }
 
-        // Linux: re-render glyph, fall back to ringed planet PNG
+        // Linux / KDE SNI: the AppIndicator layer writes icons to temp files,
+        // but KDE caches by (theme-path, icon-name) and won't re-fetch unless
+        // the theme path changes. We use a unique subdir per refresh cycle so
+        // the path is always fresh, then clear + set to force two SNI events.
         #[cfg(target_os = "linux")]
         {
-            eprintln!("[astrohour] refresh_tray: text={text:?}");
-            let icon = linux_icon::render(&text)
-                .unwrap_or_else(|| {
-                    eprintln!("[astrohour] linux_icon::render failed, using fallback PNG");
-                    tauri::image::Image::from_bytes(include_bytes!("../icons/tray-planet.png"))
-                        .expect("fallback tray icon missing")
-                });
-            let r = tray.set_icon(Some(icon));
-            eprintln!("[astrohour] set_icon result: {:?}", r);
+            use std::sync::atomic::Ordering;
+            let n = TRAY_COUNTER.fetch_add(1, Ordering::Relaxed);
+            let tmp_base = std::env::temp_dir().join(format!("astrohour-tray-{}", n));
+            let _ = std::fs::create_dir_all(&tmp_base);
+
+            if let Some(icon) = linux_icon::render_to_dir(&text, &tmp_base) {
+                let _ = tray.set_icon(None);
+                let _ = tray.set_icon(Some(icon));
+            }
+
+            // Clean up previous temp dir
+            if n > 1 {
+                let old = std::env::temp_dir().join(format!("astrohour-tray-{}", n - 1));
+                let _ = std::fs::remove_dir_all(old);
+            }
         }
     }
 
@@ -352,7 +369,7 @@ mod linux_icon {
         pb.finish()
     }
 
-    pub fn render(status_text: &str) -> Option<Image> {
+    fn render_pixmap(status_text: &str) -> Option<Pixmap> {
         let ch   = first_char(status_text);
         let path = build_path(ch)?;
 
@@ -360,14 +377,27 @@ mod linux_icon {
         pixmap.fill(Color::TRANSPARENT);
 
         let mut paint = Paint::default();
-        // White — standard for system tray icons, visible on dark/light panels
         paint.set_color_rgba8(255, 255, 255, 255);
         paint.anti_alias = true;
 
         let stroke = Stroke { width: 1.8, ..Default::default() };
         let transform = Transform::from_translate(6.0, 6.0);
         pixmap.stroke_path(&path, &paint, &stroke, transform, None);
+        Some(pixmap)
+    }
 
-        Some(Image::new_owned(pixmap.take(), 32, 32))
+    /// Render into an in-memory Tauri Image (used at startup).
+    pub fn render(status_text: &str) -> Option<Image<'static>> {
+        render_pixmap(status_text).map(|p| Image::new_owned(p.take(), 32, 32))
+    }
+
+    /// Render and write the PNG to `dir/icon.png`, then return a Tauri Image
+    /// built from that file. Using a caller-supplied dir means the AppIndicator
+    /// theme path changes each call, defeating KDE SNI's icon cache.
+    pub fn render_to_dir(status_text: &str, dir: &std::path::Path) -> Option<Image<'static>> {
+        let pixmap = render_pixmap(status_text)?;
+        let file = dir.join("icon.png");
+        pixmap.save_png(&file).ok()?;
+        tauri::image::Image::from_path(&file).ok()
     }
 }
