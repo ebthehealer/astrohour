@@ -35,6 +35,7 @@ impl TrayIcon {
                 .map(|icon| icon.inner.into())
                 .into_iter()
                 .collect(),
+            icon_generation: 0,
             title: attrs.title.unwrap_or_default(),
             tooltip: attrs.tooltip.unwrap_or_default(),
             status: ksni::Status::Active,
@@ -62,7 +63,10 @@ impl TrayIcon {
 
     pub fn set_icon(&mut self, icon: Option<Icon>) -> crate::Result<()> {
         let icon = icon.map(|icon| icon.inner.into()).into_iter().collect();
-        let _ = self.handle.update(move |tray| tray.icon = icon);
+        let _ = self.handle.update(move |tray| {
+            tray.icon = icon;
+            tray.icon_generation = tray.icon_generation.wrapping_add(1);
+        });
         Ok(())
     }
 
@@ -140,6 +144,8 @@ fn watch_menu_changes(handle: Handle<StatusNotifierTray>, shutdown: Receiver<()>
 pub(super) struct StatusNotifierTray {
     id: TrayIconId,
     icon: Vec<ksni::Icon>,
+    /// Rotated on every icon update to bust KDE's SNI icon cache.
+    icon_generation: u64,
     title: String,
     tooltip: String,
     status: ksni::Status,
@@ -177,6 +183,12 @@ impl ksni::Tray for StatusNotifierTray {
 
     fn status(&self) -> ksni::Status {
         self.status
+    }
+
+    fn icon_name(&self) -> String {
+        // Return a generation-tagged name so KDE's SNI cache sees a new icon
+        // identity on every update and re-fetches the pixmap.
+        format!("astrohour-icon-{}", self.icon_generation)
     }
 
     fn icon_pixmap(&self) -> Vec<ksni::Icon> {
