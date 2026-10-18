@@ -93,8 +93,11 @@ fn toggle_window(app: &tauri::AppHandle) {
 fn show_window(app: &tauri::AppHandle) {
     let Some(win) = app.get_webview_window("main") else { return };
 
-    // Snap window under / near the tray icon
-    let _ = win.move_window(Position::TrayBottomCenter);
+    // Try to snap to tray icon position; fall back to BottomRight if
+    // positioner can't determine tray geometry (common on Linux/appindicator).
+    if win.move_window(Position::TrayBottomCenter).is_err() {
+        let _ = win.move_window(Position::BottomRight);
+    }
     let _ = win.show();
     let _ = win.set_focus();
 
@@ -160,55 +163,39 @@ mod win_icon {
         text.chars().next().unwrap_or('\u{2643}')
     }
 
-    /// Build a stroke path for a given planet glyph.
-    /// The path fits a 20×20 box (origin 0,0).
+    /// Build a stroke path. Same glyphs as linux_icon, drawn in 28x28 space.
     fn build_path(ch: char) -> Option<tiny_skia::Path> {
         let mut pb = PathBuilder::new();
         match ch {
-            // ☉ Sun: circle + central dot
-            '\u{2609}' => {
-                pb.push_circle(10.0, 10.0, 9.0);
-                pb.push_circle(10.0, 10.0, 2.0);
-            }
-            // ☽ Moon: crescent opening to the right (cutout offset left)
-            '\u{263D}' => {
-                pb.push_circle(10.0, 10.0, 9.0);
-                pb.push_circle(6.5, 10.0, 7.0);
-            }
-            // ♂ Mars: circle + arrow pointing top-right
+            '\u{2609}' => { pb.push_circle(14.0,14.0,11.0); pb.push_circle(14.0,14.0,3.0); }
+            '\u{263D}' => { pb.push_circle(14.0,14.0,11.0); pb.push_circle(9.5,14.0,8.5); }
             '\u{2642}' => {
-                pb.push_circle(7.5, 12.5, 7.0);
-                pb.move_to(12.5, 7.5);  pb.line_to(19.5, 0.5);
-                pb.move_to(14.0, 0.5);  pb.line_to(19.5, 0.5);  pb.line_to(19.5, 6.0);
+                pb.push_circle(11.0,17.0,8.0);
+                pb.move_to(17.0,11.0); pb.line_to(26.0,2.0);
+                pb.move_to(19.5,2.0); pb.line_to(26.0,2.0); pb.line_to(26.0,8.5);
             }
-            // ☿ Mercury: circle + horns + cross + stem
             '\u{263F}' => {
-                pb.push_circle(10.0, 10.5, 5.0);
-                pb.move_to(5.5, 8.5);  pb.quad_to(10.0, 3.5, 14.5, 8.5);
-                pb.move_to(10.0, 15.5); pb.line_to(10.0, 20.0);
-                pb.move_to(6.5, 18.0);  pb.line_to(13.5, 18.0);
+                pb.push_circle(14.0,14.0,6.5);
+                pb.move_to(7.5,11.0); pb.quad_to(14.0,4.0,20.5,11.0);
+                pb.move_to(14.0,20.5); pb.line_to(14.0,26.0);
+                pb.move_to(9.5,23.5); pb.line_to(18.5,23.5);
             }
-            // ♃ Jupiter: stylised numeral shape
             '\u{2643}' => {
-                pb.move_to(14.0, 1.5);  pb.line_to(14.0, 20.0);
-                pb.move_to(5.0, 12.0);  pb.line_to(18.0, 12.0);
-                pb.move_to(13.0, 1.5);
-                pb.quad_to(3.0, 1.5, 3.0, 8.5);
-                pb.quad_to(3.0, 13.0, 14.0, 13.0);
+                pb.move_to(18.0,2.0); pb.line_to(18.0,28.0);
+                pb.move_to(5.0,18.0); pb.line_to(26.0,18.0);
+                pb.move_to(6.0,5.0); pb.quad_to(6.0,18.0,18.0,18.0);
             }
-            // ♀ Venus: circle + cross below
             '\u{2640}' => {
-                pb.push_circle(10.0, 8.0, 7.0);
-                pb.move_to(10.0, 15.0); pb.line_to(10.0, 20.0);
-                pb.move_to(6.5, 18.0);  pb.line_to(13.5, 18.0);
+                pb.push_circle(14.0,11.0,9.0);
+                pb.move_to(14.0,20.0); pb.line_to(14.0,27.0);
+                pb.move_to(9.0,24.0); pb.line_to(19.0,24.0);
             }
-            // ♄ Saturn: vertical staff + crossbar + hook, within 20×20
             '\u{2644}' => {
-                pb.move_to(10.0, 0.5);  pb.line_to(10.0, 13.0);
-                pb.move_to(5.5,  4.5);  pb.line_to(13.5, 4.5);
-                pb.move_to(10.0, 13.0);
-                pb.quad_to(17.5, 13.0, 17.5, 17.0);
-                pb.quad_to(17.5, 19.5, 13.5, 19.0);
+                pb.move_to(12.0,2.0); pb.line_to(12.0,18.0);
+                pb.move_to(6.0,8.0); pb.line_to(16.0,8.0);
+                pb.move_to(12.0,18.0);
+                pb.quad_to(22.0,18.0,22.0,23.0);
+                pb.quad_to(22.0,27.0,17.0,26.0);
             }
             _ => return None,
         }
@@ -231,7 +218,7 @@ mod win_icon {
         stroke.width = 1.7;
 
         // Centre the 20×20 glyph in the 32×32 canvas
-        let transform = Transform::from_translate(6.0, 6.0);
+        let transform = Transform::from_translate(2.0, 2.0);
         pixmap.stroke_path(&path, &paint, &stroke, transform, None);
 
         Some(Image::new_owned(pixmap.take(), 32, 32))
@@ -284,12 +271,33 @@ pub fn refresh_tray(app: &tauri::AppHandle) {
 
         #[cfg(target_os = "linux")]
         if let Some((rgba, w, h)) = icon_bytes {
-            use tauri::image::Image;
-            let icon = Image::new_owned(rgba, w, h);
-            eprintln!("[tray] main-thread set_icon {}x{}", w, h);
-            match tray.set_icon(Some(icon)) {
-                Ok(_)  => eprintln!("[tray] set_icon ok"),
-                Err(e) => eprintln!("[tray] set_icon ERROR: {:?}", e),
+            // tray-icon's GTK backend passes the full file path as the
+            // appindicator icon *name*, which KDE SNI ignores. Instead,
+            // write to a fixed XDG hicolor path and use set_icon by name.
+            if let Some(icon_dir) = linux_icon::xdg_icon_dir() {
+                let fixed = icon_dir.join("astrohour-tray.png");
+                let pixmap = tiny_skia::Pixmap::from_vec(rgba, tiny_skia::IntSize::from_wh(w, h).unwrap());
+                if let Some(pm) = pixmap {
+                    if pm.save_png(&fixed).is_ok() {
+                        eprintln!("[tray] wrote XDG icon to {:?}", fixed);
+                        // Force appindicator to reload by toggling theme path
+                        // (set_icon_theme_path triggers a re-fetch from SNI host)
+                        match tray.set_temp_dir_path(Some(&icon_dir)) {
+                            Ok(_) => eprintln!("[tray] set_temp_dir_path ok"),
+                            Err(e) => eprintln!("[tray] set_temp_dir_path err: {:?}", e),
+                        }
+                        use tauri::image::Image;
+                        let img = Image::new_owned(pm.take(), w, h);
+                        match tray.set_icon(Some(img)) {
+                            Ok(_)  => eprintln!("[tray] set_icon ok"),
+                            Err(e) => eprintln!("[tray] set_icon ERROR: {:?}", e),
+                        }
+                    }
+                }
+            } else {
+                use tauri::image::Image;
+                let icon = Image::new_owned(rgba, w, h);
+                let _ = tray.set_icon(Some(icon));
             }
         } else {
             eprintln!("[tray] no icon_bytes to set");
@@ -323,53 +331,59 @@ mod linux_icon {
         text.chars().next().unwrap_or('\u{2643}')
     }
 
+    // Glyphs drawn in 28×28 space, centred in 32×32 (2px margin each side).
+    // transform = translate(2,2); stroke width 1.8.
     fn build_path(ch: char) -> Option<tiny_skia::Path> {
         let mut pb = PathBuilder::new();
         match ch {
-            // ☉ Sun
+            // ☉ Sun: outer circle + dot
             '\u{2609}' => {
-                pb.push_circle(10.0, 10.0, 8.5);
-                pb.push_circle(10.0, 10.0, 2.5);
+                pb.push_circle(14.0, 14.0, 11.0);
+                pb.push_circle(14.0, 14.0, 3.0);
             }
-            // ☽ Moon: crescent opening to the right
+            // ☽ Moon: crescent — large circle minus offset circle
             '\u{263D}' => {
-                pb.push_circle(10.0, 10.0, 8.5);
-                pb.push_circle(6.5, 10.0, 6.5);
+                pb.push_circle(14.0, 14.0, 11.0);
+                pb.push_circle(9.5,  14.0,  8.5);
             }
-            // ♂ Mars
+            // ♂ Mars: circle bottom-left + arrow top-right
             '\u{2642}' => {
-                pb.push_circle(7.5, 12.5, 6.5);
-                pb.move_to(12.5, 7.5);  pb.line_to(19.5, 0.5);
-                pb.move_to(14.0, 0.5);  pb.line_to(19.5, 0.5);  pb.line_to(19.5, 6.0);
+                pb.push_circle(11.0, 17.0, 8.0);
+                pb.move_to(17.0, 11.0); pb.line_to(26.0,  2.0);
+                pb.move_to(19.5,  2.0); pb.line_to(26.0,  2.0);
+                pb.line_to(26.0,  8.5);
             }
-            // ☿ Mercury
+            // ☿ Mercury: crescent top + circle + cross + stem
             '\u{263F}' => {
-                pb.push_circle(10.0, 10.5, 5.0);
-                pb.move_to(5.5, 8.5);  pb.quad_to(10.0, 3.5, 14.5, 8.5);
-                pb.move_to(10.0, 15.5); pb.line_to(10.0, 20.0);
-                pb.move_to(6.5, 18.0);  pb.line_to(13.5, 18.0);
+                pb.push_circle(14.0, 14.0, 6.5);
+                pb.move_to( 7.5, 11.0); pb.quad_to(14.0,  4.0, 20.5, 11.0);
+                pb.move_to(14.0, 20.5); pb.line_to(14.0, 26.0);
+                pb.move_to( 9.5, 23.5); pb.line_to(18.5, 23.5);
             }
-            // ♃ Jupiter
+            // ♃ Jupiter: numeral-4 shape — crossbar + descending vertical +
+            //            curved left arm sweeping to crossbar
             '\u{2643}' => {
-                pb.move_to(14.0, 1.5);  pb.line_to(14.0, 20.0);
-                pb.move_to(5.0, 12.0);  pb.line_to(18.0, 12.0);
-                pb.move_to(13.0, 1.5);
-                pb.quad_to(3.0, 1.5, 3.0, 8.5);
-                pb.quad_to(3.0, 13.0, 14.0, 13.0);
+                // right vertical bar
+                pb.move_to(18.0,  2.0); pb.line_to(18.0, 28.0);
+                // horizontal crossbar
+                pb.move_to( 5.0, 18.0); pb.line_to(26.0, 18.0);
+                // curved left arm: starts top-left, arcs right to join crossbar
+                pb.move_to( 6.0,  5.0);
+                pb.quad_to( 6.0, 18.0, 18.0, 18.0);
             }
-            // ♀ Venus
+            // ♀ Venus: circle + cross below
             '\u{2640}' => {
-                pb.push_circle(10.0, 8.0, 7.0);
-                pb.move_to(10.0, 15.0); pb.line_to(10.0, 20.0);
-                pb.move_to(6.5, 18.0);  pb.line_to(13.5, 18.0);
+                pb.push_circle(14.0, 11.0, 9.0);
+                pb.move_to(14.0, 20.0); pb.line_to(14.0, 27.0);
+                pb.move_to( 9.0, 24.0); pb.line_to(19.0, 24.0);
             }
-            // ♄ Saturn: vertical staff + crossbar + descending hook, all within 20×20
+            // ♄ Saturn: vertical staff + crossbar + hook curling right
             '\u{2644}' => {
-                pb.move_to(10.0, 0.5);  pb.line_to(10.0, 13.0);
-                pb.move_to(5.5,  4.5);  pb.line_to(13.5, 4.5);
-                pb.move_to(10.0, 13.0);
-                pb.quad_to(17.5, 13.0, 17.5, 17.0);
-                pb.quad_to(17.5, 19.5, 13.5, 19.0);
+                pb.move_to(12.0,  2.0); pb.line_to(12.0, 18.0);
+                pb.move_to( 6.0,  8.0); pb.line_to(16.0,  8.0);
+                pb.move_to(12.0, 18.0);
+                pb.quad_to(22.0, 18.0, 22.0, 23.0);
+                pb.quad_to(22.0, 27.0, 17.0, 26.0);
             }
             _ => return None,
         }
@@ -406,9 +420,17 @@ mod linux_icon {
         paint.anti_alias = true;
 
         let stroke = Stroke { width: 1.8, ..Default::default() };
-        let transform = Transform::from_translate(6.0, 6.0);
+        let transform = Transform::from_translate(2.0, 2.0);
         pixmap.stroke_path(&path, &paint, &stroke, transform, None);
         Some(pixmap)
+    }
+
+    /// Returns ~/.local/share/icons/hicolor/32x32/apps/ creating it if needed.
+    pub fn xdg_icon_dir() -> Option<std::path::PathBuf> {
+        let base = std::path::PathBuf::from(std::env::var("HOME").ok()?);
+        let dir = base.join(".local/share/icons/hicolor/32x32/apps");
+        std::fs::create_dir_all(&dir).ok()?;
+        Some(dir)
     }
 
     /// Render into raw RGBA bytes. Safe to call from any thread.
