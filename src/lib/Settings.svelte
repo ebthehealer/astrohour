@@ -166,8 +166,11 @@
             style="border-color:{borderColor};"
             on:click={async () => {
               trayIconColor = c.id;
-              const resolved = c.id === 'accent' ? accentHex : c.id;
+              const resolved = c.id === 'accent' ? accentHex
+                             : c.id === 'auto'   ? 'auto'
+                             : c.id;
               await setTrayIconColor(resolved);
+              await savePrefs();
             }}
             title={c.note || c.label}
           >
@@ -416,30 +419,33 @@
   /* Tray color picker */
   .tray-color-row {
     display: flex;
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: 6px;
   }
   .tray-color-btn {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    border-radius: 8px;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: 6px;
     border: 2px solid transparent;
     background: var(--bg-elevated);
     cursor: pointer;
     transition: border-color 0.15s;
+    flex-shrink: 1;
   }
   .tray-color-btn.selected { background: var(--bg-highlight); }
   .tray-dot {
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
     display: inline-block;
     flex-shrink: 0;
   }
   .tray-label {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-primary);
+    white-space: nowrap;
   }
 
   /* Theme swatches */
