@@ -12,7 +12,37 @@ use astrohour_core::{
     display::status_bar_text,
     day_schedule,
 };
-use chrono::{NaiveDate, Utc};
+use chrono::{NaiveDate, Utc, FixedOffset};
+
+/// Return today's date in the user's local timezone.
+/// utc_offset_mins: e.g. -240 for EDT, -300 for EST, 60 for CET.
+fn local_today(utc_offset_mins: Option<i32>) -> NaiveDate {
+    let offset_secs = utc_offset_mins.unwrap_or(0) * 60;
+    let tz = FixedOffset::east_opt(offset_secs).unwrap_or(FixedOffset::east_opt(0).unwrap());
+    Utc::now().with_timezone(&tz).date_naive()
+}
+
+/// current_hour using the user's local date/offset to find the right hour.
+fn current_hour_local(loc: Location, local_date: Option<String>, utc_offset_mins: Option<i32>) -> PlanetaryHour {
+    let offset_secs = utc_offset_mins.unwrap_or(0) * 60;
+    let tz = FixedOffset::east_opt(offset_secs).unwrap_or(FixedOffset::east_opt(0).unwrap());
+    let now_fixed = Utc::now().with_timezone(&tz);
+    let date = local_date
+        .as_deref()
+        .and_then(|s| NaiveDate::parse_from_str(s, "%Y-%m-%d").ok())
+        .unwrap_or_else(|| now_fixed.date_naive());
+
+    let hours = astrohour_core::hours::planetary_hours(date, loc);
+    if let Some(h) = hours.iter().find(|h| now_fixed >= h.start && now_fixed < h.end) {
+        return h.clone();
+    }
+    let yesterday = date.pred_opt().unwrap_or(date);
+    let prev = astrohour_core::hours::planetary_hours(yesterday, loc);
+    if let Some(h) = prev.iter().find(|h| now_fixed >= h.start && now_fixed < h.end) {
+        return h.clone();
+    }
+    hours.into_iter().next().expect("hours not empty")
+}
 use tauri::State;
 use std::sync::Mutex;
 use crate::license::sha256_hex;
@@ -208,9 +238,13 @@ pub fn set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<(), String>
 // ── Astronomical queries ───────────────────────────────────────────────────────
 
 #[tauri::command]
-pub fn get_current_hour(state: State<SharedState>) -> PlanetaryHour {
+pub fn get_current_hour(
+    state: State<SharedState>,
+    local_date: Option<String>,
+    utc_offset_mins: Option<i32>,
+) -> PlanetaryHour {
     let loc = state.lock().unwrap().location;
-    current_hour(loc)
+    current_hour_local(loc, local_date, utc_offset_mins)
 }
 
 /// Extended schedule returned to the frontend.
@@ -231,35 +265,37 @@ pub struct DayScheduleResult {
 pub fn get_day_schedule(
     state: State<SharedState>,
     date_str: Option<String>,
+    utc_offset_mins: Option<i32>,
 ) -> Result<DayScheduleResult, String> {
-    use chrono::{Local, Datelike};
+    use chrono::Datelike;
     use solunatus::prelude::{get_lunar_phases_for_month, LunarPhaseType};
 
     let loc = state.lock().unwrap().location;
+    // date_str comes from the frontend as the user's local YYYY-MM-DD
     let date = match date_str {
         Some(s) => NaiveDate::parse_from_str(&s, "%Y-%m-%d")
             .map_err(|e| format!("invalid date: {e}"))?,
-        None => {
-            let cur = current_hour(loc);
-            cur.start.with_timezone(&Local).date_naive()
-        }
+        None => local_today(utc_offset_mins),
     };
 
     let sched = day_schedule(date, loc);
 
-    // Find next new moon and full moon from today, searching up to 2 months ahead
-    let now_utc = chrono::Utc::now();
+    // Find next new moon and full moon from today, searching up to 3 months ahead
+    // Use user's UTC offset so "today" is correct in their timezone
+    let offset_secs = utc_offset_mins.unwrap_or(0) * 60;
+    let user_tz = FixedOffset::east_opt(offset_secs).unwrap_or(FixedOffset::east_opt(0).unwrap());
+    let now_fixed = Utc::now().with_timezone(&user_tz);
     let mut next_new:  Option<String> = None;
     let mut next_full: Option<String> = None;
 
     'outer: for month_offset in 0..3i32 {
-        let search_date = now_utc.date_naive()
+        let search_date = now_fixed.date_naive()
             + chrono::Months::new(month_offset as u32);
         let phases = get_lunar_phases_for_month(search_date.year(), search_date.month())
             .map_err(|e| e.to_string())?;
         for p in phases {
-            if p.datetime <= now_utc { continue; }
-            let local_dt = p.datetime.with_timezone(&Local);
+            if p.datetime <= Utc::now() { continue; }
+            let local_dt = p.datetime.with_timezone(&user_tz);
             match p.phase_type {
                 LunarPhaseType::NewMoon  if next_new.is_none()  => {
                     next_new = Some(local_dt.to_rfc3339());

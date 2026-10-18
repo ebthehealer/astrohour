@@ -193,7 +193,11 @@
   }
 
   // ── Derived display values
-  $: dayName  = new Date().toLocaleDateString([], { weekday: 'long' });
+  // Derive day name from the schedule date (the local date we passed to the backend)
+  // This is correct even after midnight before sunrise (night hours belong to prior calendar day)
+  $: dayName = schedule?.date
+    ? new Date(schedule.date + 'T12:00:00').toLocaleDateString([], { weekday: 'long' })
+    : new Date().toLocaleDateString([], { weekday: 'long' });
   $: sunrise  = schedule ? formatTime(schedule.sunrise) : '--:--';
   $: sunset   = schedule ? formatTime(schedule.sunset)  : '--:--';
   // Format a UTC RFC3339 string as local date+time: "Nov 5 · 8:23 PM"
@@ -507,12 +511,12 @@
 
   /* ── Day + moon */
   .day-moon {
-    padding: 10px 16px;
+    padding: 6px 16px 8px;
     background: var(--bg-elevated);
     border-bottom: 1px solid var(--bg-highlight);
     display: flex;
     flex-direction: column;
-    gap: 7px;
+    gap: 5px;
   }
   .day-row {
     display: flex;
