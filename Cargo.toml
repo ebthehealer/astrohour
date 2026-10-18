@@ -1,0 +1,5 @@
+[workspace]
+members = ["src-tauri"]
+
+[patch.crates-io]
+tray-icon = { path = "tray-icon-ksni" }
