@@ -1,4 +1,5 @@
 <script lang="ts">
+  // v2
   import { onMount, onDestroy, tick } from 'svelte';
   import { listen } from '@tauri-apps/api/event';
   import { getCurrentWindow } from '@tauri-apps/api/window';
