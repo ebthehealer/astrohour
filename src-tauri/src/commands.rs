@@ -260,6 +260,9 @@ pub fn get_day_schedule(
     let moonset  = calculate_moonset(&sol_loc, &noon_local)
         .map(|t| t.to_rfc3339());
 
+    eprintln!("[cmd] get_day_schedule: date={date} loc={:?} moonrise={:?} moonset={:?}",
+        loc, moonrise, moonset);
+
     Ok(DayScheduleResult {
         date:          sched.date.to_string(),
         location:      sched.location,

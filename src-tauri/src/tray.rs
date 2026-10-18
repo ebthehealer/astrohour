@@ -337,28 +337,11 @@ pub fn refresh_tray(app: &tauri::AppHandle) {
 
         #[cfg(target_os = "linux")]
         if let Some((rgba, w, h)) = icon_bytes {
-            if let Some(icon_dir) = linux_icon::xdg_icon_dir() {
-                let fixed = icon_dir.join("astrohour-tray.png");
-                // Re-encode tinted RGBA as PNG to disk
-                if let Ok(f) = std::fs::File::create(&fixed) {
-                    let mut enc = png::Encoder::new(f, w, h);
-                    enc.set_color(png::ColorType::Rgba);
-                    enc.set_depth(png::BitDepth::Eight);
-                    if let Ok(mut writer) = enc.write_header() {
-                        let _ = writer.write_image_data(&rgba);
-                    }
-                }
-                eprintln!("[tray] wrote XDG icon {:?}", fixed);
-                match tray.set_temp_dir_path(Some(&icon_dir)) {
-                    Ok(_)  => {}
-                    Err(e) => eprintln!("[tray] set_temp_dir_path err: {:?}", e),
-                }
-                use tauri::image::Image;
-                let img = Image::new_owned(rgba, w, h);
-                match tray.set_icon(Some(img)) {
-                    Ok(_)  => eprintln!("[tray] set_icon ok"),
-                    Err(e) => eprintln!("[tray] set_icon ERROR: {:?}", e),
-                }
+            use tauri::image::Image;
+            let img = Image::new_owned(rgba, w, h);
+            match tray.set_icon(Some(img)) {
+                Ok(_)  => eprintln!("[tray] set_icon ok"),
+                Err(e) => eprintln!("[tray] set_icon ERROR: {:?}", e),
             }
         } else {
             eprintln!("[tray] no icon_bytes to set");
