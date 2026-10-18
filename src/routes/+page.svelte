@@ -109,22 +109,16 @@
       return;
     }
 
-    console.log('[refresh] ok', { new: sched?.next_new_moon, full: sched?.next_full_moon, sunrise: sched?.sunrise });
     moon = moonData;
-    currentHour = cur;
-    // Reconcile: if the schedule's "current" hour differs from getCurrentHour
-    // (can happen at a boundary), prefer getCurrentHour but use its index to
-    // find the matching row in the schedule so the highlight is consistent.
-    const matchInSchedule = sched?.hours.find(h => h.index === cur.index);
     schedule = sched;
-    if (!matchInSchedule && sched) {
-      // boundary race: re-fetch currentHour from the schedule's perspective
-      const nowMs = Date.now();
-      const fromSched = sched.hours.find(h =>
-        new Date(h.start).getTime() <= nowMs && nowMs < new Date(h.end).getTime()
-      );
-      if (fromSched) currentHour = fromSched;
-    }
+    // currentHour from get_current_hour must match a row in schedule.hours.
+    // Both commands now use the same astrological date (derived from utcOffsetMins)
+    // so cur.index should always be found. Use timestamp fallback just in case.
+    const nowMs = Date.now();
+    const fromSched = sched?.hours.find(h =>
+      new Date(h.start).getTime() <= nowMs && nowMs < new Date(h.end).getTime()
+    );
+    currentHour = fromSched ?? cur;
     updateMins();
     // Scroll current hour into view after DOM updates
     await tick();
