@@ -93,11 +93,21 @@ fn toggle_window(app: &tauri::AppHandle) {
 fn show_window(app: &tauri::AppHandle) {
     let Some(win) = app.get_webview_window("main") else { return };
 
-    // Try to snap to tray icon position; fall back to BottomRight if
-    // positioner can't determine tray geometry (common on Linux/appindicator).
-    if win.move_window(Position::TrayBottomCenter).is_err() {
-        let _ = win.move_window(Position::BottomRight);
+    // TrayCenter positions above the tray icon using the rect recorded by
+    // on_tray_event(). On Linux/libappindicator that rect may be (0,0) so
+    // the window ends up at the top-left corner. After positioning, check
+    // if we're stuck near (0,0) and fall back to BottomRight.
+    let _ = win.move_window(Position::TrayCenter);
+
+    #[cfg(target_os = "linux")]
+    {
+        // Give GTK a moment to apply the position, then sanity-check it.
+        let pos = win.outer_position().unwrap_or_default();
+        if pos.x < 50 && pos.y < 50 {
+            let _ = win.move_window(Position::BottomRight);
+        }
     }
+
     let _ = win.show();
     let _ = win.set_focus();
 
