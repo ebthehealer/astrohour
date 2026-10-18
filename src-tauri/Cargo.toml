@@ -13,6 +13,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+solunatus = "0.7"
 # Core astronomical calculations (local crate)
 astrohour-core = { path = "../../astrohour-core" }
 

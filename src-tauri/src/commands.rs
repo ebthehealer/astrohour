@@ -213,24 +213,64 @@ pub fn get_current_hour(state: State<SharedState>) -> PlanetaryHour {
     current_hour(loc)
 }
 
+/// Extended schedule returned to the frontend — includes moonrise/moonset
+/// as explicit optional RFC3339 strings so they survive any caching.
+#[derive(serde::Serialize)]
+pub struct DayScheduleResult {
+    pub date:          String,
+    pub location:      astrohour_core::types::Location,
+    pub planetary_day: String,
+    pub sunrise:       String,
+    pub sunset:        String,
+    pub moonrise:      Option<String>,
+    pub moonset:       Option<String>,
+    pub hours:         Vec<astrohour_core::types::PlanetaryHour>,
+    pub moon:          astrohour_core::types::MoonPhase,
+}
+
 #[tauri::command]
 pub fn get_day_schedule(
     state: State<SharedState>,
     date_str: Option<String>,
-) -> Result<DaySchedule, String> {
-    use chrono::Local;
+) -> Result<DayScheduleResult, String> {
+    use chrono::{Local, TimeZone, Datelike};
+    use solunatus::prelude::{calculate_moonrise, calculate_moonset};
+    use solunatus::astro::Location as SolLocation;
+
     let loc = state.lock().unwrap().location;
     let date = match date_str {
         Some(s) => NaiveDate::parse_from_str(&s, "%Y-%m-%d")
             .map_err(|e| format!("invalid date: {e}"))?,
-        // Use the same date as current_hour(): local time, and if we're
-        // before today's sunrise use yesterday so the schedule matches.
         None => {
             let cur = current_hour(loc);
             cur.start.with_timezone(&Local).date_naive()
         }
     };
-    Ok(day_schedule(date, loc))
+
+    let sched = day_schedule(date, loc);
+
+    // Compute moonrise/moonset fresh here, not relying on DaySchedule fields
+    let sol_loc = SolLocation::new(loc.lat, loc.lon).map_err(|e| e.to_string())?;
+    let noon_local = Local
+        .with_ymd_and_hms(date.year(), date.month(), date.day(), 12, 0, 0)
+        .single()
+        .ok_or("invalid date")?;
+    let moonrise = calculate_moonrise(&sol_loc, &noon_local)
+        .map(|t| t.to_rfc3339());
+    let moonset  = calculate_moonset(&sol_loc, &noon_local)
+        .map(|t| t.to_rfc3339());
+
+    Ok(DayScheduleResult {
+        date:          sched.date.to_string(),
+        location:      sched.location,
+        planetary_day: sched.planetary_day.name().to_string(),
+        sunrise:       sched.sunrise.to_rfc3339(),
+        sunset:        sched.sunset.to_rfc3339(),
+        moonrise,
+        moonset,
+        hours:         sched.hours,
+        moon:          sched.moon,
+    })
 }
 
 #[tauri::command]
