@@ -231,6 +231,7 @@
       currentTheme = e.detail;
       applyTheme(themes[currentTheme]);
     }}
+    on:trayColorChange={(e) => { trayIconColor = e.detail; }}
   />
 
 {:else}
