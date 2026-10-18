@@ -80,6 +80,12 @@
     unlisten = await listen('astro:tick', refresh);
     tickInterval = setInterval(updateMins, 30_000);
 
+    // Scroll to current hour whenever window becomes visible
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    getCurrentWindow().onFocusChanged(({ payload: focused }) => {
+      if (focused) scrollToCurrent();
+    });
+
     // macOS only: dismiss popover on focus loss (Linux/Windows: user uses × button)
     const appWindow = getCurrentWindow();
     if ((await appWindow.label()) === 'main') {
@@ -114,6 +120,7 @@
     // find the matching row in the schedule so the highlight is consistent.
     const matchInSchedule = sched?.hours.find(h => h.index === cur.index);
     schedule = sched;
+    console.log('[debug] moonrise:', sched?.moonrise, 'moonset:', sched?.moonset);
     if (!matchInSchedule && sched) {
       // boundary race: re-fetch currentHour from the schedule's perspective
       const nowMs = Date.now();
@@ -125,7 +132,11 @@
     updateMins();
     // Scroll current hour into view after DOM updates
     await tick();
-    hoursListEl?.querySelector('.hour-row.current')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    scrollToCurrent();
+  }
+
+  function scrollToCurrent() {
+    hoursListEl?.querySelector('.hour-row.current')?.scrollIntoView({ block: 'center', behavior: 'instant' });
   }
 
   // ── Notes
