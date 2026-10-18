@@ -22,9 +22,9 @@ fn local_today(utc_offset_mins: Option<i32>) -> NaiveDate {
     Utc::now().with_timezone(&tz).date_naive()
 }
 
-/// current_hour using the user's UTC offset to find the right local date and hour.
-/// Mirrors the Go apothecary logic: if before today's sunrise, use yesterday's night hours.
-fn current_hour_local(loc: Location, utc_offset_mins: Option<i32>) -> PlanetaryHour {
+/// Returns (current_hour, astrological_date) using the user's UTC offset.
+/// Mirrors the Go apothecary logic: if before today's sunrise, use yesterday.
+fn current_hour_and_date(loc: Location, utc_offset_mins: Option<i32>) -> (PlanetaryHour, NaiveDate) {
     let offset_secs = utc_offset_mins.unwrap_or(0) * 60;
     let tz = FixedOffset::east_opt(offset_secs).unwrap_or(FixedOffset::east_opt(0).unwrap());
     let now_fixed = Utc::now().with_timezone(&tz);
@@ -33,15 +33,19 @@ fn current_hour_local(loc: Location, utc_offset_mins: Option<i32>) -> PlanetaryH
     // Try today's hours first
     let hours = astrohour_core::hours::planetary_hours(today, loc);
     if let Some(h) = hours.iter().find(|h| now_fixed >= h.start && now_fixed < h.end) {
-        return h.clone();
+        return (h.clone(), today);
     }
     // Before today's sunrise: use yesterday's night hours
     let yesterday = today.pred_opt().unwrap_or(today);
     let prev = astrohour_core::hours::planetary_hours(yesterday, loc);
     if let Some(h) = prev.iter().find(|h| now_fixed >= h.start && now_fixed < h.end) {
-        return h.clone();
+        return (h.clone(), yesterday);
     }
-    hours.into_iter().next().expect("hours not empty")
+    (hours.into_iter().next().expect("hours not empty"), today)
+}
+
+fn current_hour_local(loc: Location, utc_offset_mins: Option<i32>) -> PlanetaryHour {
+    current_hour_and_date(loc, utc_offset_mins).0
 }
 use tauri::State;
 use std::sync::Mutex;
@@ -277,13 +281,9 @@ pub fn get_day_schedule(
         Some(s) => NaiveDate::parse_from_str(&s, "%Y-%m-%d")
             .map_err(|e| format!("invalid date: {e}"))?,
         None => {
-            // Use current_hour_local to find the right date
-            let cur = current_hour_local(loc, utc_offset_mins);
-            // The hour's start time converted to user's local date
-            let offset_secs = utc_offset_mins.unwrap_or(0) * 60;
-            let tz = FixedOffset::east_opt(offset_secs)
-                .unwrap_or(FixedOffset::east_opt(0).unwrap());
-            cur.start.with_timezone(&tz).date_naive()
+            // Use the same date that current_hour_and_date resolved:
+            // yesterday if before sunrise, today otherwise.
+            current_hour_and_date(loc, utc_offset_mins).1
         }
     };
 
