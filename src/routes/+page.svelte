@@ -88,7 +88,7 @@
 
     // macOS only: dismiss popover on focus loss (Linux/Windows: user uses × button)
     const appWindow = getCurrentWindow();
-    if ((await appWindow.label()) === 'main') {
+    if (appWindow.label === 'main') {
       const platform = navigator.userAgent.toLowerCase();
       if (platform.includes('mac')) {
         unlistenFocus = await appWindow.onFocusChanged(({ payload: focused }) => {
