@@ -14,7 +14,7 @@
 //!
 //! ### Windows
 //! Standard notification-area icon. The icon PNG is redrawn every 30 seconds
-//! by `win_icon::render()` using tiny-skia to show the current planet glyph.
+//! by `win_icon::render()` using embedded Symbola-font PNGs, tinted at runtime.
 
 use tauri::{
     App, Emitter, Manager,
@@ -146,91 +146,151 @@ mod macos_panel {
     }
 }
 
-// ── Windows glyph icon ──────────────────────────────────────────────────────────
 
-#[cfg(target_os = "windows")]
-mod win_icon {
-    //! Renders the current planet glyph into a 32×32 RGBA icon using tiny-skia.
-    //!
-    //! We define each of the 7 Chaldean planet glyphs as tiny-skia stroke paths,
-    //! drawn in a 20×20 box then centred on the 32×32 canvas. No font required.
+// ── Shared planet icon (PNG-based, both Linux and Windows) ─────────────────────
+//
+// Each planet glyph is a 32×32 white-on-transparent PNG generated from the
+// Symbola font. At render time we tint the white pixels to the chosen color.
 
-    use tiny_skia::{Color, Paint, PathBuilder, Pixmap, Stroke, Transform};
+mod planet_icon {
     use tauri::image::Image;
 
-    /// Extract the leading Unicode character from status text like "♃ Jupiter · 38m".
-    fn first_char(text: &str) -> char {
-        text.chars().next().unwrap_or('\u{2643}')
+    // Embed all 7 PNGs at compile time
+    const SUN:     &[u8] = include_bytes!("../icons/planets/sun.png");
+    const MOON:    &[u8] = include_bytes!("../icons/planets/moon.png");
+    const MARS:    &[u8] = include_bytes!("../icons/planets/mars.png");
+    const MERCURY: &[u8] = include_bytes!("../icons/planets/mercury.png");
+    const JUPITER: &[u8] = include_bytes!("../icons/planets/jupiter.png");
+    const VENUS:   &[u8] = include_bytes!("../icons/planets/venus.png");
+    const SATURN:  &[u8] = include_bytes!("../icons/planets/saturn.png");
+
+    fn png_for(text: &str) -> &'static [u8] {
+        match text.chars().next().unwrap_or('♃') {
+            '\u{2609}' => SUN,
+            '\u{263D}' => MOON,
+            '\u{2642}' => MARS,
+            '\u{263F}' => MERCURY,
+            '\u{2643}' => JUPITER,
+            '\u{2640}' => VENUS,
+            '\u{2644}' => SATURN,
+            _          => JUPITER, // fallback
+        }
     }
 
-    /// Build a stroke path. Same glyphs as linux_icon, drawn in 28x28 space.
-    fn build_path(ch: char) -> Option<tiny_skia::Path> {
-        let mut pb = PathBuilder::new();
-        match ch {
-            '\u{2609}' => { pb.push_circle(14.0,14.0,11.0); pb.push_circle(14.0,14.0,3.0); }
-            '\u{263D}' => { pb.push_circle(14.0,14.0,11.0); pb.push_circle(9.5,14.0,8.5); }
-            '\u{2642}' => {
-                pb.push_circle(11.0,17.0,8.0);
-                pb.move_to(17.0,11.0); pb.line_to(26.0,2.0);
-                pb.move_to(19.5,2.0); pb.line_to(26.0,2.0); pb.line_to(26.0,8.5);
+    pub fn parse_color(color: &str) -> (u8, u8, u8) {
+        match color.trim() {
+            "auto" | "white" => (255, 255, 255),
+            "gold"           => (200, 168,  75),
+            s if s.starts_with('#') && s.len() == 7 => {
+                let r = u8::from_str_radix(&s[1..3], 16).unwrap_or(255);
+                let g = u8::from_str_radix(&s[3..5], 16).unwrap_or(255);
+                let b = u8::from_str_radix(&s[5..7], 16).unwrap_or(255);
+                (r, g, b)
             }
-            '\u{263F}' => {
-                pb.move_to(7.0,13.0); pb.quad_to(14.0,4.0,21.0,13.0);
-                pb.push_circle(14.0,18.0,6.0);
-                pb.move_to(14.0,24.0); pb.line_to(14.0,28.0);
-                pb.move_to(9.5,26.5); pb.line_to(18.5,26.5);
+            _ => (255, 255, 255),
+        }
+    }
+
+    /// Decode PNG → RGBA, tint white pixels to `color`, return raw bytes.
+    pub fn render_rgba(status_text: &str, color: &str) -> Option<(Vec<u8>, u32, u32)> {
+        let png = png_for(status_text);
+        // Decode PNG manually using the `png` crate (already a transitive dep via tauri)
+        let cursor = std::io::Cursor::new(png);
+        let decoder = png::Decoder::new(cursor);
+        let mut reader = decoder.read_info().ok()?;
+        let mut buf = vec![0u8; reader.output_buffer_size()];
+        let info = reader.next_frame(&mut buf).ok()?;
+        let w = info.width;
+        let h = info.height;
+        let bytes = &buf[..info.buffer_size()];
+
+        let (tr, tg, tb) = parse_color(color);
+
+        // Convert to RGBA and tint: replace RGB of non-transparent pixels
+        let mut rgba = Vec::with_capacity((w * h * 4) as usize);
+        match info.color_type {
+            png::ColorType::Rgba => {
+                for chunk in bytes.chunks_exact(4) {
+                    let a = chunk[3];
+                    if a > 0 {
+                        rgba.extend_from_slice(&[tr, tg, tb, a]);
+                    } else {
+                        rgba.extend_from_slice(&[0, 0, 0, 0]);
+                    }
+                }
             }
-            '\u{2643}' => {
-                pb.move_to(5.0,4.0); pb.line_to(5.0,17.0); pb.line_to(22.0,17.0);
-                pb.move_to(17.0,2.0); pb.line_to(17.0,28.0);
+            png::ColorType::Rgb => {
+                for chunk in bytes.chunks_exact(3) {
+                    // treat brightness as alpha
+                    let brightness = chunk[0].max(chunk[1]).max(chunk[2]);
+                    rgba.extend_from_slice(&[tr, tg, tb, brightness]);
+                }
             }
-            '\u{2640}' => {
-                pb.push_circle(14.0,11.0,9.0);
-                pb.move_to(14.0,20.0); pb.line_to(14.0,27.0);
-                pb.move_to(9.0,24.0); pb.line_to(19.0,24.0);
+            png::ColorType::Grayscale => {
+                for &g in bytes {
+                    rgba.extend_from_slice(&[tr, tg, tb, g]);
+                }
             }
-            '\u{2644}' => {
-                pb.move_to(12.0,2.0); pb.line_to(12.0,18.0);
-                pb.move_to(6.0,8.0); pb.line_to(16.0,8.0);
-                pb.move_to(12.0,18.0);
-                pb.quad_to(22.0,18.0,22.0,23.0);
-                pb.quad_to(22.0,27.0,17.0,26.0);
+            png::ColorType::GrayscaleAlpha => {
+                for chunk in bytes.chunks_exact(2) {
+                    rgba.extend_from_slice(&[tr, tg, tb, chunk[1]]);
+                }
             }
             _ => return None,
         }
-        pb.finish()
+
+        Some((rgba, w, h))
     }
 
-    /// Render the planet glyph for `status_text` into a 32×32 Tauri `Image`.
-    pub fn render(status_text: &str) -> Option<Image> {
-        let ch = first_char(status_text);
-        let path = build_path(ch)?;
-
-        let mut pixmap = Pixmap::new(32, 32)?;
-        pixmap.fill(Color::TRANSPARENT);
-
-        let mut paint = Paint::default();
-        paint.set_color(Color::WHITE);
-        paint.anti_alias = true;
-
-        let mut stroke = Stroke::default();
-        stroke.width = 1.7;
-
-        // Centre the 20×20 glyph in the 32×32 canvas
-        let transform = Transform::from_translate(2.0, 2.0);
-        pixmap.stroke_path(&path, &paint, &stroke, transform, None);
-
-        Some(Image::new_owned(pixmap.take(), 32, 32))
+    /// Return a Tauri Image (for startup or Windows).
+    pub fn render(status_text: &str, color: &str) -> Option<Image<'static>> {
+        let (rgba, w, h) = render_rgba(status_text, color)?;
+        Some(Image::new_owned(rgba, w, h))
     }
 }
 
-// ── Linux tray temp dir counter (unique dir per refresh forces SNI re-fetch) ─
+// ── Windows tray icon ───────────────────────────────────────────────────────────
+#[cfg(target_os = "windows")]
+mod win_icon {
+    use tauri::image::Image;
+    pub fn render(status_text: &str) -> Option<Image<'static>> {
+        super::planet_icon::render(status_text, "white")
+    }
+}
 
+// ── Linux tray icon ─────────────────────────────────────────────────────────────
 #[cfg(target_os = "linux")]
-static TRAY_COUNTER: std::sync::atomic::AtomicU32 =
-    std::sync::atomic::AtomicU32::new(1);
+mod linux_icon {
+    use tauri::image::Image;
 
-// ── Periodic refresh (called by timer every 30s) ─────────────────────────────
+    pub fn xdg_icon_dir() -> Option<std::path::PathBuf> {
+        let base = std::path::PathBuf::from(std::env::var("HOME").ok()?);
+        let dir = base.join(".local/share/icons/hicolor/32x32/apps");
+        std::fs::create_dir_all(&dir).ok()?;
+        Some(dir)
+    }
+
+    pub fn render_rgba(status_text: &str, color: &str) -> Option<(Vec<u8>, u32, u32)> {
+        super::planet_icon::render_rgba(status_text, color)
+    }
+
+    pub fn render_to_dir(status_text: &str, dir: &std::path::Path, color: &str) -> Option<Image<'static>> {
+        // Write tinted PNG to dir/icon.png for the initial tray setup
+        let (rgba, w, h) = render_rgba(status_text, color)?;
+        // Re-encode as PNG
+        let file = dir.join("icon.png");
+        let f = std::fs::File::create(&file).ok()?;
+        let mut enc = png::Encoder::new(f, w, h);
+        enc.set_color(png::ColorType::Rgba);
+        enc.set_depth(png::BitDepth::Eight);
+        let mut writer = enc.write_header().ok()?;
+        writer.write_image_data(&rgba).ok()?;
+        drop(writer);
+        tauri::image::Image::from_path(&file).ok()
+    }
+}
+
+// ── Tray refresh ───────────────────────────────────────────────────────────────
 
 pub fn refresh_tray(app: &tauri::AppHandle) {
     use astrohour_core::display::status_bar_text;
@@ -243,9 +303,6 @@ pub fn refresh_tray(app: &tauri::AppHandle) {
 
     eprintln!("[tray] refresh: text={:?} color={:?}", text, color);
 
-    // Pre-render the icon on THIS thread (tiny-skia is fine off-main).
-    // Then post a single closure to the main thread that does all GTK/appindicator
-    // calls at once, avoiding multiple blocking round-trips from background threads.
     #[cfg(target_os = "linux")]
     let icon_bytes: Option<(Vec<u8>, u32, u32)> = linux_icon::render_rgba(&text, &color);
 
@@ -270,33 +327,28 @@ pub fn refresh_tray(app: &tauri::AppHandle) {
 
         #[cfg(target_os = "linux")]
         if let Some((rgba, w, h)) = icon_bytes {
-            // tray-icon's GTK backend passes the full file path as the
-            // appindicator icon *name*, which KDE SNI ignores. Instead,
-            // write to a fixed XDG hicolor path and use set_icon by name.
             if let Some(icon_dir) = linux_icon::xdg_icon_dir() {
                 let fixed = icon_dir.join("astrohour-tray.png");
-                let pixmap = tiny_skia::Pixmap::from_vec(rgba, tiny_skia::IntSize::from_wh(w, h).unwrap());
-                if let Some(pm) = pixmap {
-                    if pm.save_png(&fixed).is_ok() {
-                        eprintln!("[tray] wrote XDG icon to {:?}", fixed);
-                        // Force appindicator to reload by toggling theme path
-                        // (set_icon_theme_path triggers a re-fetch from SNI host)
-                        match tray.set_temp_dir_path(Some(&icon_dir)) {
-                            Ok(_) => eprintln!("[tray] set_temp_dir_path ok"),
-                            Err(e) => eprintln!("[tray] set_temp_dir_path err: {:?}", e),
-                        }
-                        use tauri::image::Image;
-                        let img = Image::new_owned(pm.take(), w, h);
-                        match tray.set_icon(Some(img)) {
-                            Ok(_)  => eprintln!("[tray] set_icon ok"),
-                            Err(e) => eprintln!("[tray] set_icon ERROR: {:?}", e),
-                        }
+                // Re-encode tinted RGBA as PNG to disk
+                if let Ok(f) = std::fs::File::create(&fixed) {
+                    let mut enc = png::Encoder::new(f, w, h);
+                    enc.set_color(png::ColorType::Rgba);
+                    enc.set_depth(png::BitDepth::Eight);
+                    if let Ok(mut writer) = enc.write_header() {
+                        let _ = writer.write_image_data(&rgba);
                     }
                 }
-            } else {
+                eprintln!("[tray] wrote XDG icon {:?}", fixed);
+                match tray.set_temp_dir_path(Some(&icon_dir)) {
+                    Ok(_)  => {}
+                    Err(e) => eprintln!("[tray] set_temp_dir_path err: {:?}", e),
+                }
                 use tauri::image::Image;
-                let icon = Image::new_owned(rgba, w, h);
-                let _ = tray.set_icon(Some(icon));
+                let img = Image::new_owned(rgba, w, h);
+                match tray.set_icon(Some(img)) {
+                    Ok(_)  => eprintln!("[tray] set_icon ok"),
+                    Err(e) => eprintln!("[tray] set_icon ERROR: {:?}", e),
+                }
             }
         } else {
             eprintln!("[tray] no icon_bytes to set");
@@ -311,130 +363,4 @@ fn initial_tray_text(app: &App) -> String {
     let state = app.state::<SharedState>();
     let s = state.lock().unwrap();
     status_bar_text(s.location, s.display_mode)
-}
-
-// ── Linux glyph icon ───────────────────────────────────────────────────────────────
-
-#[cfg(target_os = "linux")]
-mod linux_icon {
-    //! Renders the current planet glyph into a 32×32 RGBA icon for the
-    //! Linux system tray using tiny-skia. Same approach as win_icon but
-    //! with a slightly brighter palette for dark/light panel backgrounds.
-    //!
-    //! Returns None on any rendering failure — caller uses the PNG fallback.
-
-    use tiny_skia::{Color, Paint, PathBuilder, Pixmap, Stroke, Transform};
-    use tauri::image::Image;
-
-    fn first_char(text: &str) -> char {
-        text.chars().next().unwrap_or('\u{2643}')
-    }
-
-    // Glyphs drawn in 28×28 space, centred in 32×32 (2px margin each side).
-    // transform = translate(2,2); stroke width 1.8.
-    fn build_path(ch: char) -> Option<tiny_skia::Path> {
-        let mut pb = PathBuilder::new();
-        match ch {
-            // ☉ Sun
-            '\u{2609}' => { pb.push_circle(14.0,14.0,11.0); pb.push_circle(14.0,14.0,3.0); }
-            // ☽ Moon
-            '\u{263D}' => { pb.push_circle(14.0,14.0,11.0); pb.push_circle(9.5,14.0,8.5); }
-            // ♂ Mars
-            '\u{2642}' => {
-                pb.push_circle(11.0,17.0,8.0);
-                pb.move_to(17.0,11.0); pb.line_to(26.0,2.0);
-                pb.move_to(19.5,2.0); pb.line_to(26.0,2.0); pb.line_to(26.0,8.5);
-            }
-            // ☿ Mercury: horns arc + circle + stem + crossbar
-            '\u{263F}' => {
-                pb.move_to(7.0,13.0); pb.quad_to(14.0,4.0,21.0,13.0);
-                pb.push_circle(14.0,18.0,6.0);
-                pb.move_to(14.0,24.0); pb.line_to(14.0,28.0);
-                pb.move_to(9.5,26.5); pb.line_to(18.5,26.5);
-            }
-            // ♃ Jupiter: numeral-4 (L-shape left arm + vertical right bar)
-            '\u{2643}' => {
-                pb.move_to(5.0,4.0); pb.line_to(5.0,17.0); pb.line_to(22.0,17.0);
-                pb.move_to(17.0,2.0); pb.line_to(17.0,28.0);
-            }
-            // ♀ Venus
-            '\u{2640}' => {
-                pb.push_circle(14.0,11.0,9.0);
-                pb.move_to(14.0,20.0); pb.line_to(14.0,27.0);
-                pb.move_to(9.0,24.0); pb.line_to(19.0,24.0);
-            }
-            // ♄ Saturn
-            '\u{2644}' => {
-                pb.move_to(12.0,2.0); pb.line_to(12.0,18.0);
-                pb.move_to(6.0,8.0); pb.line_to(16.0,8.0);
-                pb.move_to(12.0,18.0);
-                pb.quad_to(22.0,18.0,22.0,23.0);
-                pb.quad_to(22.0,27.0,17.0,26.0);
-            }
-            _ => return None,
-        }
-        pb.finish()
-    }
-
-    /// Parse color string into RGBA bytes.
-    /// Accepts: "auto" | "white" | "gold" | "#rrggbb"
-    /// "auto" uses white — correct for SNI on dark panels; the DE composites it.
-    fn parse_color(color: &str) -> (u8, u8, u8, u8) {
-        match color.trim() {
-            "auto" | "white" => (255, 255, 255, 255),
-            "gold"           => (200, 168, 75,  255),
-            s if s.starts_with('#') && s.len() == 7 => {
-                let r = u8::from_str_radix(&s[1..3], 16).unwrap_or(255);
-                let g = u8::from_str_radix(&s[3..5], 16).unwrap_or(255);
-                let b = u8::from_str_radix(&s[5..7], 16).unwrap_or(255);
-                (r, g, b, 255)
-            }
-            _ => (255, 255, 255, 255),
-        }
-    }
-
-    fn render_pixmap(status_text: &str, color: &str) -> Option<Pixmap> {
-        let ch   = first_char(status_text);
-        let path = build_path(ch)?;
-
-        let mut pixmap = Pixmap::new(32, 32)?;
-        pixmap.fill(Color::TRANSPARENT);
-
-        let (r, g, b, a) = parse_color(color);
-        let mut paint = Paint::default();
-        paint.set_color_rgba8(r, g, b, a);
-        paint.anti_alias = true;
-
-        let stroke = Stroke { width: 1.8, ..Default::default() };
-        let transform = Transform::from_translate(2.0, 2.0);
-        pixmap.stroke_path(&path, &paint, &stroke, transform, None);
-        Some(pixmap)
-    }
-
-    /// Returns ~/.local/share/icons/hicolor/32x32/apps/ creating it if needed.
-    pub fn xdg_icon_dir() -> Option<std::path::PathBuf> {
-        let base = std::path::PathBuf::from(std::env::var("HOME").ok()?);
-        let dir = base.join(".local/share/icons/hicolor/32x32/apps");
-        std::fs::create_dir_all(&dir).ok()?;
-        Some(dir)
-    }
-
-    /// Render into raw RGBA bytes. Safe to call from any thread.
-    pub fn render_rgba(status_text: &str, color: &str) -> Option<(Vec<u8>, u32, u32)> {
-        let pixmap = render_pixmap(status_text, color)?;
-        Some((pixmap.take(), 32, 32))
-    }
-
-    /// Render into an in-memory Tauri Image (used at startup on main thread).
-    pub fn render(status_text: &str, color: &str) -> Option<Image<'static>> {
-        render_pixmap(status_text, color).map(|p| Image::new_owned(p.take(), 32, 32))
-    }
-
-    /// Legacy: render and write PNG. Still used for the initial tray setup.
-    pub fn render_to_dir(status_text: &str, dir: &std::path::Path, color: &str) -> Option<Image<'static>> {
-        let pixmap = render_pixmap(status_text, color)?;
-        let file = dir.join("icon.png");
-        pixmap.save_png(&file).ok()?;
-        tauri::image::Image::from_path(&file).ok()
-    }
 }
