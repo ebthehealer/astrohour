@@ -49,6 +49,9 @@ png = "0.17"
 [target.'cfg(target_os = "linux")'.dependencies]
 png = "0.17"
 
+[patch.crates-io]
+tray-icon = { path = "../tray-icon-ksni" }
+
 [profile.release]
 codegen-units = 1
 lto = true
