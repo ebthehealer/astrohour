@@ -120,7 +120,6 @@
     // find the matching row in the schedule so the highlight is consistent.
     const matchInSchedule = sched?.hours.find(h => h.index === cur.index);
     schedule = sched;
-    console.log('[debug] moonrise:', sched?.moonrise, 'moonset:', sched?.moonset);
     if (!matchInSchedule && sched) {
       // boundary race: re-fetch currentHour from the schedule's perspective
       const nowMs = Date.now();
