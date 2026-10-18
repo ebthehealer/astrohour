@@ -257,49 +257,44 @@ pub fn refresh_tray(app: &tauri::AppHandle) {
 
     eprintln!("[tray] refresh: text={:?} color={:?}", text, color);
 
-    match app.tray_by_id("main") {
-      None => { eprintln!("[tray] ERROR: tray_by_id('main') returned None"); return; }
-      Some(tray) => {
-        let _ = tray.set_title(Some(&text));
-        let _ = tray.set_tooltip(Some(&text));
+    // Pre-render the icon on THIS thread (tiny-skia is fine off-main).
+    // Then post a single closure to the main thread that does all GTK/appindicator
+    // calls at once, avoiding multiple blocking round-trips from background threads.
+    #[cfg(target_os = "linux")]
+    let icon_bytes: Option<(Vec<u8>, u32, u32)> = linux_icon::render_rgba(&text, &color);
 
-        // Windows: re-render glyph into icon each tick
+    #[cfg(not(target_os = "linux"))]
+    let icon_bytes: Option<(Vec<u8>, u32, u32)> = None;
+
+    let app2 = app.clone();
+    let text2 = text.clone();
+    let _ = app.run_on_main_thread(move || {
+        let Some(tray) = app2.tray_by_id("main") else {
+            eprintln!("[tray] ERROR: tray_by_id('main') returned None on main thread");
+            return;
+        };
+
+        let _ = tray.set_title(Some(&text2));
+        let _ = tray.set_tooltip(Some(&text2));
+
         #[cfg(target_os = "windows")]
-        if let Some(icon) = win_icon::render(&text) {
+        if let Some(icon) = win_icon::render(&text2) {
             let _ = tray.set_icon(Some(icon));
         }
 
-        // Linux / KDE SNI: the AppIndicator layer writes icons to temp files,
-        // but KDE caches by (theme-path, icon-name) and won't re-fetch unless
-        // the theme path changes. We use a unique subdir per refresh cycle so
-        // the path is always fresh, then clear + set to force two SNI events.
         #[cfg(target_os = "linux")]
-        {
-            use std::sync::atomic::Ordering;
-            let n = TRAY_COUNTER.fetch_add(1, Ordering::Relaxed);
-            let tmp_base = std::env::temp_dir().join(format!("astrohour-tray-{}", n));
-            let _ = std::fs::create_dir_all(&tmp_base);
-
-            eprintln!("[tray] linux render: dir={:?} color={:?}", tmp_base, color);
-            match linux_icon::render_to_dir(&text, &tmp_base, &color) {
-                Some(icon) => {
-                    eprintln!("[tray] icon rendered ok, setting (n={})...", n);
-                    // Set twice with different paths — the first call with None
-                    // is unreliable on some SNI stacks; just set the new icon
-                    // directly. The unique dir path per-call busts the KDE cache.
-                    let _ = tray.set_icon(Some(icon));
-                }
-                None => eprintln!("[tray] render_to_dir returned None — fallback PNG in use"),
+        if let Some((rgba, w, h)) = icon_bytes {
+            use tauri::image::Image;
+            let icon = Image::new_owned(rgba, w, h);
+            eprintln!("[tray] main-thread set_icon {}x{}", w, h);
+            match tray.set_icon(Some(icon)) {
+                Ok(_)  => eprintln!("[tray] set_icon ok"),
+                Err(e) => eprintln!("[tray] set_icon ERROR: {:?}", e),
             }
-
-            // Clean up previous temp dir
-            if n > 1 {
-                let old = std::env::temp_dir().join(format!("astrohour-tray-{}", n - 1));
-                let _ = std::fs::remove_dir_all(old);
-            }
+        } else {
+            eprintln!("[tray] no icon_bytes to set");
         }
-      } // end match tray
-    }
+    });
 
     let _ = app.emit("astro:tick", ());
 }
@@ -416,14 +411,18 @@ mod linux_icon {
         Some(pixmap)
     }
 
-    /// Render into an in-memory Tauri Image (used at startup).
-    pub fn render(status_text: &str) -> Option<Image<'static>> {
-        render_pixmap(status_text, "white").map(|p| Image::new_owned(p.take(), 32, 32))
+    /// Render into raw RGBA bytes. Safe to call from any thread.
+    pub fn render_rgba(status_text: &str, color: &str) -> Option<(Vec<u8>, u32, u32)> {
+        let pixmap = render_pixmap(status_text, color)?;
+        Some((pixmap.take(), 32, 32))
     }
 
-    /// Render and write the PNG to `dir/icon.png`, then return a Tauri Image
-    /// built from that file. Using a caller-supplied dir means the AppIndicator
-    /// theme path changes each call, defeating KDE SNI's icon cache.
+    /// Render into an in-memory Tauri Image (used at startup on main thread).
+    pub fn render(status_text: &str, color: &str) -> Option<Image<'static>> {
+        render_pixmap(status_text, color).map(|p| Image::new_owned(p.take(), 32, 32))
+    }
+
+    /// Legacy: render and write PNG. Still used for the initial tray setup.
     pub fn render_to_dir(status_text: &str, dir: &std::path::Path, color: &str) -> Option<Image<'static>> {
         let pixmap = render_pixmap(status_text, color)?;
         let file = dir.join("icon.png");
