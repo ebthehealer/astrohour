@@ -187,11 +187,15 @@
   }
 
   // ── Derived display values
-  // Derive day name from the schedule date (the local date we passed to the backend)
-  // This is correct even after midnight before sunrise (night hours belong to prior calendar day)
-  $: dayName = schedule?.date
-    ? new Date(schedule.date + 'T12:00:00').toLocaleDateString([], { weekday: 'long' })
-    : new Date().toLocaleDateString([], { weekday: 'long' });
+  // dayName and dayRuler always reflect the civil calendar (wall-clock) day.
+  // The schedule.date may be yesterday (before sunrise) but the user sees today's name.
+  const calendarRulers = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const calendarRulerNames = ['Sun','Moon','Mars','Mercury','Jupiter','Venus','Saturn'];
+  $: dayName = new Date().toLocaleDateString([], { weekday: 'long' });
+  $: dayRuler = (() => {
+    if (travelDate) return schedule?.planetary_day ?? '';
+    return calendarRulerNames[new Date().getDay()];
+  })();
   $: sunrise  = schedule ? formatTime(schedule.sunrise) : '--:--';
   $: sunset   = schedule ? formatTime(schedule.sunset)  : '--:--';
   // Format a UTC RFC3339 string as local date+time: "Nov 5 · 8:23 PM"
@@ -203,7 +207,6 @@
   }
   $: nextNewMoon  = formatLocalPhase(schedule?.next_new_moon);
   $: nextFullMoon = formatLocalPhase(schedule?.next_full_moon);
-  $: dayRuler = schedule?.planetary_day ?? '';
 </script>
 
 {#if !ready}
