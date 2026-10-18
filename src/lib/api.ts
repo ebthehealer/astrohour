@@ -94,16 +94,14 @@ export const getLocation    = ()                    => invoke<LocationResult>('g
 export const setLocation    = (lat: number, lon: number) => invoke<void>('set_location', { lat, lon });
 export const getAutostart   = ()                    => invoke<boolean>('get_autostart');
 export const setAutostart   = (enabled: boolean)   => invoke<void>('set_autostart', { enabled });
-/** Local date string yyyy-MM-dd and UTC offset in minutes (e.g. -240 for EDT). */
-export const localDateStr = () =>
-  new Date().toLocaleDateString('en-CA'); // 'en-CA' gives YYYY-MM-DD
+/** UTC offset in minutes for the user's local timezone (e.g. -240 for EDT). */
 export const utcOffsetMins = () =>
   -new Date().getTimezoneOffset(); // JS getTimezoneOffset is negated vs convention
 
 export const getCurrentHour = () =>
-  invoke<PlanetaryHour>('get_current_hour', { localDate: localDateStr(), utcOffsetMins: utcOffsetMins() });
+  invoke<PlanetaryHour>('get_current_hour', { utcOffsetMins: utcOffsetMins() });
 export const getDaySchedule = (date?: string) =>
-  invoke<DaySchedule>('get_day_schedule', { dateStr: date ?? localDateStr(), utcOffsetMins: utcOffsetMins() });
+  invoke<DaySchedule>('get_day_schedule', { dateStr: date ?? null, utcOffsetMins: utcOffsetMins() });
 export const getStatusText  = ()                    => invoke<string>('get_status_text');
 export const getMoonPhase   = ()                    => invoke<MoonPhase>('get_moon_phase');
 export const getDisplayMode = ()                    => invoke<DisplayMode>('get_display_mode');
