@@ -47,8 +47,8 @@ export interface DaySchedule {
   planetary_day: string;
   sunrise: string;
   sunset: string;
-  moonrise: string | null;
-  moonset: string | null;
+  next_new_moon:  string | null;
+  next_full_moon: string | null;
   hours: PlanetaryHour[];
   moon: MoonPhase;
 }

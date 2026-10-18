@@ -119,7 +119,7 @@
       console.error('[refresh] IPC error:', e);
       return;
     }
-    console.log('[refresh] sched:', JSON.stringify({moonrise: sched?.moonrise, moonset: sched?.moonset}));
+
     moon = moonData;
     currentHour = cur;
     // Reconcile: if the schedule's "current" hour differs from getCurrentHour
@@ -206,8 +206,15 @@
   $: dayName  = new Date().toLocaleDateString([], { weekday: 'long' });
   $: sunrise  = schedule ? formatTime(schedule.sunrise) : '--:--';
   $: sunset   = schedule ? formatTime(schedule.sunset)  : '--:--';
-  $: moonrise = schedule?.moonrise ? formatTime(schedule.moonrise) : null;
-  $: moonset  = schedule?.moonset  ? formatTime(schedule.moonset)  : null;
+  // Format a UTC RFC3339 string as local date+time: "Nov 5 · 8:23 PM"
+  function formatLocalPhase(iso: string | null | undefined): string | null {
+    if (!iso) return null;
+    const d = new Date(iso);
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+      + ' · ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  $: nextNewMoon  = formatLocalPhase(schedule?.next_new_moon);
+  $: nextFullMoon = formatLocalPhase(schedule?.next_full_moon);
   $: dayRuler = schedule?.planetary_day ?? '';
 </script>
 
@@ -305,9 +312,8 @@
           <span class="ruler">{planetSymbol(dayRuler)} {dayRuler} Day</span>
           <span class="sun-times">
             <span>☀️ {sunrise}–{sunset}</span>
-            {#if moonrise || moonset}
-              <span>🌙 {moonrise ?? '?'}–{moonset ?? '?'}</span>
-            {/if}
+            {#if nextNewMoon}<span class="moon-phase-line">🌑 New &nbsp;{nextNewMoon}</span>{/if}
+            {#if nextFullMoon}<span class="moon-phase-line">🌕 Full &nbsp;{nextFullMoon}</span>{/if}
           </span>
         </div>
         <div class="moon-row">
@@ -528,8 +534,9 @@
   .ruler { color: var(--accent); font-weight: 600; }
   .sun-times {
     color: var(--text-secondary); font-size: 11px; margin-left: auto;
-    display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
   }
+  .moon-phase-line { opacity: 0.85; }
   .moon-row { display: flex; align-items: center; gap: 10px; }
   .phase-emoji { font-size: 20px; }
   .phase-name { font-weight: 600; color: var(--text-primary); font-size: 13px; }
