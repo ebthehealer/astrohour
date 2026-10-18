@@ -41,12 +41,12 @@ ed25519-dalek = { version = "3.0.0", features = ["rand_core"] }
 objc2 = "0.5"
 objc2-foundation = { version = "0.2", features = ["NSObject"] }
 
-# Windows: render planet glyph into tray icon
+# PNG decoding for planet icons (both platforms)
 [target.'cfg(target_os = "windows")'.dependencies]
-tiny-skia = "0.12"
+png = "0.17"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-tiny-skia = "0.12"
+png = "0.17"
 
 [profile.release]
 codegen-units = 1
