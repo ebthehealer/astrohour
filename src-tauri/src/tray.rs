@@ -175,15 +175,14 @@ mod win_icon {
                 pb.move_to(19.5,2.0); pb.line_to(26.0,2.0); pb.line_to(26.0,8.5);
             }
             '\u{263F}' => {
-                pb.push_circle(14.0,14.0,6.5);
-                pb.move_to(7.5,11.0); pb.quad_to(14.0,4.0,20.5,11.0);
-                pb.move_to(14.0,20.5); pb.line_to(14.0,26.0);
-                pb.move_to(9.5,23.5); pb.line_to(18.5,23.5);
+                pb.move_to(7.0,13.0); pb.quad_to(14.0,4.0,21.0,13.0);
+                pb.push_circle(14.0,18.0,6.0);
+                pb.move_to(14.0,24.0); pb.line_to(14.0,28.0);
+                pb.move_to(9.5,26.5); pb.line_to(18.5,26.5);
             }
             '\u{2643}' => {
-                pb.move_to(18.0,2.0); pb.line_to(18.0,28.0);
-                pb.move_to(5.0,18.0); pb.line_to(26.0,18.0);
-                pb.move_to(6.0,5.0); pb.quad_to(6.0,18.0,18.0,18.0);
+                pb.move_to(5.0,4.0); pb.line_to(5.0,17.0); pb.line_to(22.0,17.0);
+                pb.move_to(17.0,2.0); pb.line_to(17.0,28.0);
             }
             '\u{2640}' => {
                 pb.push_circle(14.0,11.0,9.0);
@@ -336,54 +335,41 @@ mod linux_icon {
     fn build_path(ch: char) -> Option<tiny_skia::Path> {
         let mut pb = PathBuilder::new();
         match ch {
-            // ☉ Sun: outer circle + dot
-            '\u{2609}' => {
-                pb.push_circle(14.0, 14.0, 11.0);
-                pb.push_circle(14.0, 14.0, 3.0);
-            }
-            // ☽ Moon: crescent — large circle minus offset circle
-            '\u{263D}' => {
-                pb.push_circle(14.0, 14.0, 11.0);
-                pb.push_circle(9.5,  14.0,  8.5);
-            }
-            // ♂ Mars: circle bottom-left + arrow top-right
+            // ☉ Sun
+            '\u{2609}' => { pb.push_circle(14.0,14.0,11.0); pb.push_circle(14.0,14.0,3.0); }
+            // ☽ Moon
+            '\u{263D}' => { pb.push_circle(14.0,14.0,11.0); pb.push_circle(9.5,14.0,8.5); }
+            // ♂ Mars
             '\u{2642}' => {
-                pb.push_circle(11.0, 17.0, 8.0);
-                pb.move_to(17.0, 11.0); pb.line_to(26.0,  2.0);
-                pb.move_to(19.5,  2.0); pb.line_to(26.0,  2.0);
-                pb.line_to(26.0,  8.5);
+                pb.push_circle(11.0,17.0,8.0);
+                pb.move_to(17.0,11.0); pb.line_to(26.0,2.0);
+                pb.move_to(19.5,2.0); pb.line_to(26.0,2.0); pb.line_to(26.0,8.5);
             }
-            // ☿ Mercury: crescent top + circle + cross + stem
+            // ☿ Mercury: horns arc + circle + stem + crossbar
             '\u{263F}' => {
-                pb.push_circle(14.0, 14.0, 6.5);
-                pb.move_to( 7.5, 11.0); pb.quad_to(14.0,  4.0, 20.5, 11.0);
-                pb.move_to(14.0, 20.5); pb.line_to(14.0, 26.0);
-                pb.move_to( 9.5, 23.5); pb.line_to(18.5, 23.5);
+                pb.move_to(7.0,13.0); pb.quad_to(14.0,4.0,21.0,13.0);
+                pb.push_circle(14.0,18.0,6.0);
+                pb.move_to(14.0,24.0); pb.line_to(14.0,28.0);
+                pb.move_to(9.5,26.5); pb.line_to(18.5,26.5);
             }
-            // ♃ Jupiter: numeral-4 shape — crossbar + descending vertical +
-            //            curved left arm sweeping to crossbar
+            // ♃ Jupiter: numeral-4 (L-shape left arm + vertical right bar)
             '\u{2643}' => {
-                // right vertical bar
-                pb.move_to(18.0,  2.0); pb.line_to(18.0, 28.0);
-                // horizontal crossbar
-                pb.move_to( 5.0, 18.0); pb.line_to(26.0, 18.0);
-                // curved left arm: starts top-left, arcs right to join crossbar
-                pb.move_to( 6.0,  5.0);
-                pb.quad_to( 6.0, 18.0, 18.0, 18.0);
+                pb.move_to(5.0,4.0); pb.line_to(5.0,17.0); pb.line_to(22.0,17.0);
+                pb.move_to(17.0,2.0); pb.line_to(17.0,28.0);
             }
-            // ♀ Venus: circle + cross below
+            // ♀ Venus
             '\u{2640}' => {
-                pb.push_circle(14.0, 11.0, 9.0);
-                pb.move_to(14.0, 20.0); pb.line_to(14.0, 27.0);
-                pb.move_to( 9.0, 24.0); pb.line_to(19.0, 24.0);
+                pb.push_circle(14.0,11.0,9.0);
+                pb.move_to(14.0,20.0); pb.line_to(14.0,27.0);
+                pb.move_to(9.0,24.0); pb.line_to(19.0,24.0);
             }
-            // ♄ Saturn: vertical staff + crossbar + hook curling right
+            // ♄ Saturn
             '\u{2644}' => {
-                pb.move_to(12.0,  2.0); pb.line_to(12.0, 18.0);
-                pb.move_to( 6.0,  8.0); pb.line_to(16.0,  8.0);
-                pb.move_to(12.0, 18.0);
-                pb.quad_to(22.0, 18.0, 22.0, 23.0);
-                pb.quad_to(22.0, 27.0, 17.0, 26.0);
+                pb.move_to(12.0,2.0); pb.line_to(12.0,18.0);
+                pb.move_to(6.0,8.0); pb.line_to(16.0,8.0);
+                pb.move_to(12.0,18.0);
+                pb.quad_to(22.0,18.0,22.0,23.0);
+                pb.quad_to(22.0,27.0,17.0,26.0);
             }
             _ => return None,
         }
