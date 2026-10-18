@@ -202,13 +202,13 @@ mod win_icon {
                 pb.move_to(10.0, 15.0); pb.line_to(10.0, 20.0);
                 pb.move_to(6.5, 18.0);  pb.line_to(13.5, 18.0);
             }
-            // ♄ Saturn: sickle + cross
+            // ♄ Saturn: vertical staff + crossbar + hook, within 20×20
             '\u{2644}' => {
-                pb.move_to(10.0, 0.5);  pb.line_to(10.0, 14.0);
-                pb.move_to(6.0,  4.5);  pb.line_to(14.0, 4.5);
-                pb.move_to(10.0, 14.0);
-                pb.quad_to(18.0, 14.0, 18.0, 18.5);
-                pb.quad_to(18.0, 22.0, 13.5, 21.0);
+                pb.move_to(10.0, 0.5);  pb.line_to(10.0, 13.0);
+                pb.move_to(5.5,  4.5);  pb.line_to(13.5, 4.5);
+                pb.move_to(10.0, 13.0);
+                pb.quad_to(17.5, 13.0, 17.5, 17.0);
+                pb.quad_to(17.5, 19.5, 13.5, 19.0);
             }
             _ => return None,
         }
@@ -249,11 +249,13 @@ static TRAY_COUNTER: std::sync::atomic::AtomicU32 =
 pub fn refresh_tray(app: &tauri::AppHandle) {
     use astrohour_core::display::status_bar_text;
 
-    let text = {
+    let (text, color) = {
         let state = app.state::<SharedState>();
         let s = state.lock().unwrap();
-        status_bar_text(s.location, s.display_mode)
+        (status_bar_text(s.location, s.display_mode), s.tray_icon_color.clone())
     };
+
+    eprintln!("[tray] refresh: text={:?} color={:?}", text, color);
 
     if let Some(tray) = app.tray_by_id("main") {
         let _ = tray.set_title(Some(&text));
@@ -276,11 +278,14 @@ pub fn refresh_tray(app: &tauri::AppHandle) {
             let tmp_base = std::env::temp_dir().join(format!("astrohour-tray-{}", n));
             let _ = std::fs::create_dir_all(&tmp_base);
 
-            let color = app.state::<SharedState>().lock().unwrap().tray_icon_color.clone();
-
-            if let Some(icon) = linux_icon::render_to_dir(&text, &tmp_base, &color) {
-                let _ = tray.set_icon(None);
-                let _ = tray.set_icon(Some(icon));
+            eprintln!("[tray] linux render: dir={:?} color={:?}", tmp_base, color);
+            match linux_icon::render_to_dir(&text, &tmp_base, &color) {
+                Some(icon) => {
+                    eprintln!("[tray] icon rendered ok, setting...");
+                    let _ = tray.set_icon(None);
+                    let _ = tray.set_icon(Some(icon));
+                }
+                None => eprintln!("[tray] render_to_dir returned None — fallback PNG in use"),
             }
 
             // Clean up previous temp dir
@@ -358,13 +363,13 @@ mod linux_icon {
                 pb.move_to(10.0, 15.0); pb.line_to(10.0, 20.0);
                 pb.move_to(6.5, 18.0);  pb.line_to(13.5, 18.0);
             }
-            // ♄ Saturn
+            // ♄ Saturn: vertical staff + crossbar + descending hook, all within 20×20
             '\u{2644}' => {
-                pb.move_to(10.0, 0.5);  pb.line_to(10.0, 14.0);
-                pb.move_to(6.0,  4.5);  pb.line_to(14.0, 4.5);
-                pb.move_to(10.0, 14.0);
-                pb.quad_to(18.0, 14.0, 18.0, 18.5);
-                pb.quad_to(18.0, 22.0, 13.5, 21.0);
+                pb.move_to(10.0, 0.5);  pb.line_to(10.0, 13.0);
+                pb.move_to(5.5,  4.5);  pb.line_to(13.5, 4.5);
+                pb.move_to(10.0, 13.0);
+                pb.quad_to(17.5, 13.0, 17.5, 17.0);
+                pb.quad_to(17.5, 19.5, 13.5, 19.0);
             }
             _ => return None,
         }

@@ -182,9 +182,11 @@
   }
 
   // ── Derived display values
-  $: dayName = new Date().toLocaleDateString([], { weekday: 'long' });
-  $: sunrise = schedule ? formatTime(schedule.sunrise) : '--:--';
-  $: sunset  = schedule ? formatTime(schedule.sunset)  : '--:--';
+  $: dayName  = new Date().toLocaleDateString([], { weekday: 'long' });
+  $: sunrise  = schedule ? formatTime(schedule.sunrise) : '--:--';
+  $: sunset   = schedule ? formatTime(schedule.sunset)  : '--:--';
+  $: moonrise = schedule?.moonrise ? formatTime(schedule.moonrise) : null;
+  $: moonset  = schedule?.moonset  ? formatTime(schedule.moonset)  : null;
   $: dayRuler = schedule?.planetary_day ?? '';
 </script>
 
@@ -279,7 +281,12 @@
         <div class="day-row">
           <span class="day-label">{dayName}</span>
           <span class="ruler">{planetSymbol(dayRuler)} {dayRuler} Day</span>
-          <span class="sun-times">rise {sunrise} &middot; set {sunset}</span>
+          <span class="sun-times">
+            ☀️ {sunrise}–{sunset}
+            {#if moonrise || moonset}
+              &nbsp;·&nbsp; 🌙 {moonrise ?? '?'}–{moonset ?? '?'}
+            {/if}
+          </span>
         </div>
         <div class="moon-row">
           <span class="phase-emoji">{phaseEmoji(moon.phase)}</span>
