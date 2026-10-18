@@ -213,19 +213,18 @@ pub fn get_current_hour(state: State<SharedState>) -> PlanetaryHour {
     current_hour(loc)
 }
 
-/// Extended schedule returned to the frontend — includes moonrise/moonset
-/// as explicit optional RFC3339 strings so they survive any caching.
+/// Extended schedule returned to the frontend.
 #[derive(serde::Serialize)]
 pub struct DayScheduleResult {
-    pub date:          String,
-    pub location:      astrohour_core::types::Location,
-    pub planetary_day: String,
-    pub sunrise:       String,
-    pub sunset:        String,
-    pub moonrise:      Option<String>,
-    pub moonset:       Option<String>,
-    pub hours:         Vec<astrohour_core::types::PlanetaryHour>,
-    pub moon:          astrohour_core::types::MoonPhase,
+    pub date:           String,
+    pub location:       astrohour_core::types::Location,
+    pub planetary_day:  String,
+    pub sunrise:        String,
+    pub sunset:         String,
+    pub next_new_moon:  Option<String>,  // RFC3339 local
+    pub next_full_moon: Option<String>,  // RFC3339 local
+    pub hours:          Vec<astrohour_core::types::PlanetaryHour>,
+    pub moon:           astrohour_core::types::MoonPhase,
 }
 
 #[tauri::command]
@@ -233,9 +232,8 @@ pub fn get_day_schedule(
     state: State<SharedState>,
     date_str: Option<String>,
 ) -> Result<DayScheduleResult, String> {
-    use chrono::{Local, TimeZone, Datelike};
-    use solunatus::prelude::{calculate_moonrise, calculate_moonset};
-    use solunatus::astro::Location as SolLocation;
+    use chrono::{Local, Datelike};
+    use solunatus::prelude::{get_lunar_phases_for_month, LunarPhaseType};
 
     let loc = state.lock().unwrap().location;
     let date = match date_str {
@@ -249,30 +247,42 @@ pub fn get_day_schedule(
 
     let sched = day_schedule(date, loc);
 
-    // Compute moonrise/moonset fresh here, not relying on DaySchedule fields
-    let sol_loc = SolLocation::new(loc.lat, loc.lon).map_err(|e| e.to_string())?;
-    let noon_local = Local
-        .with_ymd_and_hms(date.year(), date.month(), date.day(), 12, 0, 0)
-        .single()
-        .ok_or("invalid date")?;
-    let moonrise = calculate_moonrise(&sol_loc, &noon_local)
-        .map(|t| t.to_rfc3339());
-    let moonset  = calculate_moonset(&sol_loc, &noon_local)
-        .map(|t| t.to_rfc3339());
+    // Find next new moon and full moon from today, searching up to 2 months ahead
+    let now_utc = chrono::Utc::now();
+    let mut next_new:  Option<String> = None;
+    let mut next_full: Option<String> = None;
 
-    eprintln!("[cmd] get_day_schedule: date={date} loc={:?} moonrise={:?} moonset={:?}",
-        loc, moonrise, moonset);
+    'outer: for month_offset in 0..3i32 {
+        let search_date = now_utc.date_naive()
+            + chrono::Months::new(month_offset as u32);
+        let phases = get_lunar_phases_for_month(search_date.year(), search_date.month())
+            .map_err(|e| e.to_string())?;
+        for p in phases {
+            if p.datetime <= now_utc { continue; }
+            let local_dt = p.datetime.with_timezone(&Local);
+            match p.phase_type {
+                LunarPhaseType::NewMoon  if next_new.is_none()  => {
+                    next_new = Some(local_dt.to_rfc3339());
+                }
+                LunarPhaseType::FullMoon if next_full.is_none() => {
+                    next_full = Some(local_dt.to_rfc3339());
+                }
+                _ => {}
+            }
+            if next_new.is_some() && next_full.is_some() { break 'outer; }
+        }
+    }
 
     Ok(DayScheduleResult {
-        date:          sched.date.to_string(),
-        location:      sched.location,
-        planetary_day: sched.planetary_day.name().to_string(),
-        sunrise:       sched.sunrise.to_rfc3339(),
-        sunset:        sched.sunset.to_rfc3339(),
-        moonrise,
-        moonset,
-        hours:         sched.hours,
-        moon:          sched.moon,
+        date:           sched.date.to_string(),
+        location:       sched.location,
+        planetary_day:  sched.planetary_day.name().to_string(),
+        sunrise:        sched.sunrise.to_rfc3339(),
+        sunset:         sched.sunset.to_rfc3339(),
+        next_new_moon:  next_new,
+        next_full_moon: next_full,
+        hours:          sched.hours,
+        moon:           sched.moon,
     })
 }
 
