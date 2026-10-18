@@ -80,21 +80,12 @@
     unlisten = await listen('astro:tick', refresh);
     tickInterval = setInterval(updateMins, 30_000);
 
-    // Scroll to current hour + handle focus events
-    try {
-      const { getCurrentWindow } = await import('@tauri-apps/api/window');
-      const appWindow = getCurrentWindow();
-      // Scroll to current hour whenever window gains focus
-      unlistenFocus = await appWindow.onFocusChanged(({ payload: focused }) => {
-        if (focused) {
-          scrollToCurrent();
-          // macOS: hide on focus loss
-          // (handled below per platform)
-        }
-      });
-    } catch(e) {
-      console.warn('onFocusChanged unavailable:', e);
-    }
+    // Scroll to current hour on focus (best-effort, non-blocking)
+    import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
+      getCurrentWindow().onFocusChanged(({ payload: focused }) => {
+        if (focused) scrollToCurrent();
+      }).then(unlisten => { unlistenFocus = unlisten; }).catch(() => {});
+    }).catch(() => {});
   });
 
   onDestroy(() => {
