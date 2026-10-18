@@ -80,23 +80,20 @@
     unlisten = await listen('astro:tick', refresh);
     tickInterval = setInterval(updateMins, 30_000);
 
-    // Scroll to current hour whenever window becomes visible
-    const { getCurrentWindow } = await import('@tauri-apps/api/window');
-    getCurrentWindow().onFocusChanged(({ payload: focused }) => {
-      if (focused) scrollToCurrent();
-    });
-
-    // macOS only: dismiss popover on focus loss (Linux/Windows: user uses × button)
-    const appWindow = getCurrentWindow();
-    if (appWindow.label === 'main') {
-      const platform = navigator.userAgent.toLowerCase();
-      if (platform.includes('mac')) {
-        unlistenFocus = await appWindow.onFocusChanged(({ payload: focused }) => {
-          if (!focused && !showSettings && !showLicense && !showNotesHistory) {
-            appWindow.hide();
-          }
-        });
-      }
+    // Scroll to current hour + handle focus events
+    try {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      const appWindow = getCurrentWindow();
+      // Scroll to current hour whenever window gains focus
+      unlistenFocus = await appWindow.onFocusChanged(({ payload: focused }) => {
+        if (focused) {
+          scrollToCurrent();
+          // macOS: hide on focus loss
+          // (handled below per platform)
+        }
+      });
+    } catch(e) {
+      console.warn('onFocusChanged unavailable:', e);
     }
   });
 
@@ -120,6 +117,7 @@
       return;
     }
 
+    console.log('[refresh] ok', { new: sched?.next_new_moon, full: sched?.next_full_moon, sunrise: sched?.sunrise });
     moon = moonData;
     currentHour = cur;
     // Reconcile: if the schedule's "current" hour differs from getCurrentHour
