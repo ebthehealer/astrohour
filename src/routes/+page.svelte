@@ -101,11 +101,26 @@
 
   // ── Data refresh
   async function refresh() {
-    [schedule, currentHour, moon] = await Promise.all([
+    const [sched, cur, moonData] = await Promise.all([
       getDaySchedule(travelDate ?? undefined),
       getCurrentHour(),
       getMoonPhase(),
     ]);
+    moon = moonData;
+    currentHour = cur;
+    // Reconcile: if the schedule's "current" hour differs from getCurrentHour
+    // (can happen at a boundary), prefer getCurrentHour but use its index to
+    // find the matching row in the schedule so the highlight is consistent.
+    const matchInSchedule = sched?.hours.find(h => h.index === cur.index);
+    schedule = sched;
+    if (!matchInSchedule && sched) {
+      // boundary race: re-fetch currentHour from the schedule's perspective
+      const nowMs = Date.now();
+      const fromSched = sched.hours.find(h =>
+        new Date(h.start).getTime() <= nowMs && nowMs < new Date(h.end).getTime()
+      );
+      if (fromSched) currentHour = fromSched;
+    }
     updateMins();
   }
 
