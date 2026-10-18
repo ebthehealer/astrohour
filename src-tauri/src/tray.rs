@@ -257,7 +257,9 @@ pub fn refresh_tray(app: &tauri::AppHandle) {
 
     eprintln!("[tray] refresh: text={:?} color={:?}", text, color);
 
-    if let Some(tray) = app.tray_by_id("main") {
+    match app.tray_by_id("main") {
+      None => { eprintln!("[tray] ERROR: tray_by_id('main') returned None"); return; }
+      Some(tray) => {
         let _ = tray.set_title(Some(&text));
         let _ = tray.set_tooltip(Some(&text));
 
@@ -294,6 +296,7 @@ pub fn refresh_tray(app: &tauri::AppHandle) {
                 let _ = std::fs::remove_dir_all(old);
             }
         }
+      } // end match tray
     }
 
     let _ = app.emit("astro:tick", ());

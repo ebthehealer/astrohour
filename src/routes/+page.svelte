@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, tick } from 'svelte';
   import { listen } from '@tauri-apps/api/event';
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import {
@@ -54,6 +54,7 @@
   let unlisten: (() => void) | null = null;
   let unlistenFocus: (() => void) | null = null;
   let tickInterval: ReturnType<typeof setInterval> | null = null;
+  let hoursListEl: HTMLElement | null = null;
 
   // ── Lifecycle
   onMount(async () => {
@@ -122,6 +123,9 @@
       if (fromSched) currentHour = fromSched;
     }
     updateMins();
+    // Scroll current hour into view after DOM updates
+    await tick();
+    hoursListEl?.querySelector('.hour-row.current')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }
 
   // ── Notes
@@ -282,9 +286,9 @@
           <span class="day-label">{dayName}</span>
           <span class="ruler">{planetSymbol(dayRuler)} {dayRuler} Day</span>
           <span class="sun-times">
-            ☀️ {sunrise}–{sunset}
+            <span>☀️ {sunrise}–{sunset}</span>
             {#if moonrise || moonset}
-              &nbsp;·&nbsp; 🌙 {moonrise ?? '?'}–{moonset ?? '?'}
+              <span>🌙 {moonrise ?? '?'}–{moonset ?? '?'}</span>
             {/if}
           </span>
         </div>
@@ -313,7 +317,7 @@
       </div>
 
       <!-- ── 24-hour list -->
-      <section class="all-hours">
+      <section class="all-hours" bind:this={hoursListEl}>
         <div class="hours-label">{travelDate ? 'HOURS FOR THIS DATE' : 'ALL 24 HOURS TODAY'}</div>
         <ul class="hours-list">
           {#each schedule.hours as h (h.index)}
@@ -504,7 +508,10 @@
   }
   .day-label { color: var(--text-secondary); }
   .ruler { color: var(--accent); font-weight: 600; }
-  .sun-times { color: var(--text-secondary); font-size: 11px; margin-left: auto; }
+  .sun-times {
+    color: var(--text-secondary); font-size: 11px; margin-left: auto;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
+  }
   .moon-row { display: flex; align-items: center; gap: 10px; }
   .phase-emoji { font-size: 20px; }
   .phase-name { font-weight: 600; color: var(--text-primary); font-size: 13px; }
