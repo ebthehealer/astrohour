@@ -45,10 +45,14 @@ ksni = [
     "dep:ksni",
     "muda-snapshot",
 ]
+# Redirected to ksni: tauri requests this feature but we use ksni instead.
+# dep: entries must be listed here to satisfy Cargo; libappindicator is
+# optional so it only compiles if the platform dep is present, but we
+# never actually use it at runtime -- ksni handles everything.
 libappindicator = [
     "dep:dirs",
     "dep:libappindicator",
-    "muda-gtk3",
+    "ksni",
 ]
 muda-common-controls-v6 = ["muda/common-controls-v6"]
 muda-gtk3 = ["muda/gtk3"]
