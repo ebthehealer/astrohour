@@ -108,11 +108,18 @@
 
   // ── Data refresh
   async function refresh() {
-    const [sched, cur, moonData] = await Promise.all([
-      getDaySchedule(travelDate ?? undefined),
-      getCurrentHour(),
-      getMoonPhase(),
-    ]);
+    let sched: DaySchedule | null = null, cur: PlanetaryHour | null = null, moonData: MoonPhase | null = null;
+    try {
+      [sched, cur, moonData] = await Promise.all([
+        getDaySchedule(travelDate ?? undefined),
+        getCurrentHour(),
+        getMoonPhase(),
+      ]);
+    } catch(e) {
+      console.error('[refresh] IPC error:', e);
+      return;
+    }
+    console.log('[refresh] sched:', JSON.stringify({moonrise: sched?.moonrise, moonset: sched?.moonset}));
     moon = moonData;
     currentHour = cur;
     // Reconcile: if the schedule's "current" hour differs from getCurrentHour
