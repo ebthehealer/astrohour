@@ -283,8 +283,10 @@ pub fn refresh_tray(app: &tauri::AppHandle) {
             eprintln!("[tray] linux render: dir={:?} color={:?}", tmp_base, color);
             match linux_icon::render_to_dir(&text, &tmp_base, &color) {
                 Some(icon) => {
-                    eprintln!("[tray] icon rendered ok, setting...");
-                    let _ = tray.set_icon(None);
+                    eprintln!("[tray] icon rendered ok, setting (n={})...", n);
+                    // Set twice with different paths — the first call with None
+                    // is unreliable on some SNI stacks; just set the new icon
+                    // directly. The unique dir path per-call busts the KDE cache.
                     let _ = tray.set_icon(Some(icon));
                 }
                 None => eprintln!("[tray] render_to_dir returned None — fallback PNG in use"),

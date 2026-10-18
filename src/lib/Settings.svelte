@@ -34,6 +34,7 @@
     close: void;
     saved: { lat: number; lon: number; displayMode: DisplayMode };
     themeChange: string;
+    trayColorChange: string;
   }>();
 
   // ── Local form state
@@ -165,12 +166,12 @@
             class:selected={trayIconColor === c.id}
             style="border-color:{borderColor};"
             on:click={async () => {
-              trayIconColor = c.id;
               const resolved = c.id === 'accent' ? accentHex
                              : c.id === 'auto'   ? 'auto'
                              : c.id;
               await setTrayIconColor(resolved);
               await savePrefs();
+              dispatch('trayColorChange', c.id);
             }}
             title={c.note || c.label}
           >
