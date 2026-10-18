@@ -218,11 +218,17 @@ pub fn get_day_schedule(
     state: State<SharedState>,
     date_str: Option<String>,
 ) -> Result<DaySchedule, String> {
+    use chrono::Local;
     let loc = state.lock().unwrap().location;
     let date = match date_str {
         Some(s) => NaiveDate::parse_from_str(&s, "%Y-%m-%d")
             .map_err(|e| format!("invalid date: {e}"))?,
-        None => Utc::now().date_naive(),
+        // Use the same date as current_hour(): local time, and if we're
+        // before today's sunrise use yesterday so the schedule matches.
+        None => {
+            let cur = current_hour(loc);
+            cur.start.with_timezone(&Local).date_naive()
+        }
     };
     Ok(day_schedule(date, loc))
 }
@@ -285,7 +291,7 @@ pub fn make_planet_key(date: String, hour_index: usize) -> Result<String, String
 /// Convenience for the frontend so it doesn't have to format dates itself.
 #[tauri::command]
 pub fn today_string() -> String {
-    Utc::now().format("%Y-%m-%d").to_string()
+    chrono::Local::now().format("%Y-%m-%d").to_string()
 }
 
 // ── Phase 2: License commands ───────────────────────────────────────────────────────
