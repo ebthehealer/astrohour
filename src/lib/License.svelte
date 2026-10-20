@@ -13,16 +13,23 @@
    *   Record: 'license_key'
    *   Password: device_secret from prefs store
    */
-  import { onMount, createEventDispatcher } from 'svelte';
+  import { onMount } from 'svelte';
   import Database from '@tauri-apps/plugin-sql';
+  import { Client, Store } from '@tauri-apps/plugin-stronghold';
   import {
     activateLicense, deactivateLicense,
     getLicenseStatus, restoreLicense,
     type LicenseStatus
   } from './api';
 
-  export let onClose: () => void;
-  export let onActivated: () => void;
+  export let deviceSecret: string;
+  export let onClose:      () => void;
+  export let onActivated:  () => void;
+
+  // Stronghold constants
+  const STRONGHOLD_PATH = 'astrohour.stronghold';
+  const VAULT_NAME      = 'astrohour';
+  const KEY_RECORD      = 'license_key';
 
   const DB_URL = 'sqlite:astrohour.db';
 
@@ -38,6 +45,38 @@
     return Database.load(DB_URL);
   }
 
+  // Open (or create) the stronghold vault and return the client.
+  async function openVault(): Promise<Client> {
+    const stronghold = await Client.load(STRONGHOLD_PATH, deviceSecret);
+    try {
+      return await stronghold.loadClient(VAULT_NAME);
+    } catch {
+      return await stronghold.createClient(VAULT_NAME);
+    }
+  }
+
+  async function storeKeyInVault(rawKey: string): Promise<void> {
+    const client = await openVault();
+    const store  = client.getStore();
+    const encoder = new TextEncoder();
+    await store.insert(KEY_RECORD, Array.from(encoder.encode(rawKey)));
+    // Persist vault to disk
+    const stronghold = await Client.load(STRONGHOLD_PATH, deviceSecret);
+    await stronghold.save();
+  }
+
+  async function loadKeyFromVault(): Promise<string | null> {
+    try {
+      const client  = await openVault();
+      const store   = client.getStore();
+      const bytes   = await store.get(KEY_RECORD);
+      if (!bytes) return null;
+      return new TextDecoder().decode(new Uint8Array(bytes));
+    } catch {
+      return null;
+    }
+  }
+
   async function loadStatus() {
     try {
       const db = await openDb();
@@ -46,7 +85,13 @@
       );
       const row = rows[0];
       if (row?.key_hash) {
+        // Restore Rust-side license state from stored hash
         await restoreLicense(row.key_hash, row.activated_at ?? null);
+        // Also re-validate raw key from stronghold for extra integrity check
+        const rawKey = await loadKeyFromVault();
+        if (rawKey) {
+          try { await activateLicense(rawKey); } catch { /* hash restore is enough */ }
+        }
       }
       status = await getLicenseStatus();
     } catch (e: any) {
@@ -64,7 +109,7 @@
       // Validate + record in Rust state — returns key_hash on success
       const keyHash = await activateLicense(key);
 
-      // Persist hash to SQLite (so we can restore on next launch)
+      // Persist hash to SQLite (restore on next launch without re-entry)
       const now = new Date().toISOString();
       const db  = await openDb();
       await db.execute(
@@ -72,9 +117,8 @@
         [keyHash, now]
       );
 
-      // TODO: persist raw key to stronghold for offline re-verification
-      // Stronghold JS API requires a vault password (device_secret);
-      // wired here once device_secret generation is added to prefs flow.
+      // Persist raw key to stronghold (for full re-validation on next launch)
+      await storeKeyInVault(key);
 
       status  = await getLicenseStatus();
       keyInput = '';
@@ -91,6 +135,14 @@
     await deactivateLicense();
     const db = await openDb();
     await db.execute('UPDATE license SET key_hash = NULL, activated_at = NULL WHERE id = 1');
+    // Clear stronghold record
+    try {
+      const client = await openVault();
+      const store  = client.getStore();
+      await store.remove(KEY_RECORD);
+      const stronghold = await Client.load(STRONGHOLD_PATH, deviceSecret);
+      await stronghold.save();
+    } catch { /* vault may not exist yet */ }
     status = { status: 'none' };
   }
 
