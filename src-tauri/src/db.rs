@@ -20,5 +20,11 @@ pub fn migrations() -> Vec<Migration> {
             sql:         include_str!("../migrations/0001_initial.sql"),
             kind:        MigrationKind::Up,
         },
+        Migration {
+            version:     2,
+            description: "add planet_name to notes",
+            sql:         include_str!("../migrations/0002_planet_name.sql"),
+            kind:        MigrationKind::Up,
+        },
     ]
 }
