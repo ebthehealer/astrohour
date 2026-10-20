@@ -42,6 +42,31 @@ npm install
 npm run tauri dev
 ```
 
+### Linux: taskbar / dock icon
+On Wayland the compositor ignores the icon embedded in the window. It resolves
+the taskbar icon by matching the window's **app_id** (`com.astrohour.app`, set
+via `enableGTKAppId` in `tauri.conf.json`) against an installed `.desktop` file.
+Without one you get a generic placeholder — note this is separate from the
+system-tray icon, which is drawn directly over DBus and always works.
+
+Install the desktop entry and hicolor icons into your local XDG dirs:
+```bash
+./scripts/install-dev-desktop.sh
+```
+Re-run it whenever the icon artwork changes. Takes effect on next launch.
+
+(Proper `.deb`/`.rpm`/`.AppImage` packaging will install these system-wide; the
+script is for dev machines.)
+
+### Icons
+Source artwork lives in `assets/`. To regenerate every platform icon set after
+changing it:
+```bash
+cargo tauri icon assets/icon-source-1024.png
+```
+This writes macOS `.icns`, Windows `.ico` + Store logos, Linux PNGs, Android
+mipmaps and iOS AppIcons into `src-tauri/icons/`.
+
 ### Noctalia plugin
 See [noctalia/README.md](noctalia/README.md) for setup and local testing instructions.
 
