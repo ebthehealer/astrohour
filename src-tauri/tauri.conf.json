@@ -27,7 +27,8 @@
     ],
     "security": {
       "csp": null
-    }
+    },
+    "enableGTKAppId": true
   },
   "plugins": {
     "autostart": null
