@@ -1,6 +1,9 @@
 node_modules/
 build/
 .svelte-kit/
+target/
 src-tauri/target/
 src-tauri/gen/
 *.db
+.vscode/
+tray-icon-ksni/Cargo.lock
