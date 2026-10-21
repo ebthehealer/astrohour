@@ -50,6 +50,8 @@
   let deviceSecret = '';
   let currentTheme = DEFAULT_THEME;
   let trayIconColor = 'auto';
+  let notificationsEnabled = true;
+  let clockFormat = '12';
 
   // Listeners / timers
   let unlisten: (() => void) | null = null;
@@ -67,6 +69,8 @@
     deviceSecret = prefs.device_secret;
     // Apply saved theme (falls back to default if not set)
     trayIconColor = prefs.tray_icon_color ?? 'white';
+    notificationsEnabled = prefs.notifications_enabled ?? true;
+    clockFormat = prefs.clock_format ?? '12';
     const savedTheme = (prefs as any).theme ?? DEFAULT_THEME;
     currentTheme = savedTheme in themes ? savedTheme : DEFAULT_THEME;
     applyTheme(themes[currentTheme]);
@@ -240,6 +244,7 @@
 {:else if showSettings}
   <Settings
     {lat} {lon} {displayMode} {currentTheme} {trayIconColor}
+    {notificationsEnabled} {clockFormat}
     on:close={() => showSettings = false}
     on:saved={onSettingsSaved}
     on:themeChange={(e) => {
@@ -247,6 +252,8 @@
       applyTheme(themes[currentTheme]);
     }}
     on:trayColorChange={(e) => { trayIconColor = e.detail; }}
+    on:notificationsChange={(e) => { notificationsEnabled = e.detail; }}
+    on:clockFormatChange={(e) => { clockFormat = e.detail; }}
   />
 
 {:else}

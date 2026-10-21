@@ -313,14 +313,15 @@ pub fn refresh_tray(app: &tauri::AppHandle) {
         let bar   = status_bar_text(s.location, s.display_mode);
         let color = s.tray_icon_color.clone();
 
-        // Build a rich tooltip: "♃ Jupiter Hour · 38m remaining (07:12 – 08:06)"
+        // Build a rich tooltip: "♃ Jupiter Hour · 38m remaining (7:12 AM – 8:06 AM)"
         let hour       = current_hour(s.location);
         let now        = Local::now();
         let mins_left  = hour.minutes_remaining_from(now);
         let glyph      = hour.planet.symbol();
         let name       = hour.planet.name();
-        let start_str  = hour.start.format("%H:%M");
-        let end_str    = hour.end.format("%H:%M");
+        let fmt        = if s.clock_format == "24" { "%H:%M" } else { "%-I:%M %p" };
+        let start_str  = hour.start.format(fmt);
+        let end_str    = hour.end.format(fmt);
         let mins_int   = mins_left.round() as i64;
         let tip = format!(
             "{glyph} {name} Hour · {mins_int}m remaining ({start_str} – {end_str})"

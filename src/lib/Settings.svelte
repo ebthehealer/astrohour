@@ -4,6 +4,8 @@
     setLocation, setDisplayMode, savePrefs,
     setAutostart, getAutostart,
     formatCoord,
+    setNotificationsEnabled,
+    setClockFormat,
     type DisplayMode,
   } from './api';
   import { detectLocation } from './geo';
@@ -15,6 +17,8 @@
   export let displayMode: DisplayMode;
   export let currentTheme: string = 'midnight';
   export let trayIconColor: string = 'white';
+  export let notificationsEnabled: boolean = true;
+  export let clockFormat: string = '12';
 
   // 'auto' = white, letting the DE composite it (correct for SNI on dark panels).
   // 'accent' = resolved at render time from the current theme's --accent variable.
@@ -35,6 +39,8 @@
     saved: { lat: number; lon: number; displayMode: DisplayMode };
     themeChange: string;
     trayColorChange: string;
+    notificationsChange: boolean;
+    clockFormatChange: string;
   }>();
 
   // ── Local form state
@@ -86,6 +92,8 @@
       await setLocation(newLat, newLon);
       await setDisplayMode(mode);
       await setAutostart(autostart);
+      await setNotificationsEnabled(notificationsEnabled);
+      await setClockFormat(clockFormat);
       await savePrefs();
       dispatch('saved', { lat: newLat, lon: newLon, displayMode: mode });
       dispatch('close');
@@ -202,6 +210,41 @@
               <div style="background:{t.bgElevated};"></div>
             </div>
           </button>
+        {/each}
+      </div>
+    </section>
+
+    <!-- Notifications -->
+    <section>
+      <div class="section-title">Notifications</div>
+      <label class="toggle-row" for="notif-toggle">
+        <span>Hour-change notifications</span>
+        <div id="notif-toggle" class="toggle" class:on={notificationsEnabled}
+          on:click={async () => {
+            notificationsEnabled = !notificationsEnabled;
+            await setNotificationsEnabled(notificationsEnabled);
+            dispatch('notificationsChange', notificationsEnabled);
+          }}
+          role="switch" aria-checked={notificationsEnabled} tabindex="0"
+          on:keydown={(e) => e.key === 'Enter' && (notificationsEnabled = !notificationsEnabled)}>
+          <div class="toggle-thumb"></div>
+        </div>
+      </label>
+    </section>
+
+    <!-- Clock format -->
+    <section>
+      <div class="section-title">Clock Format</div>
+      <div class="clock-format-row">
+        {#each [['12', '12-hour  (7:42 AM)'], ['24', '24-hour  (19:42)']] as [val, label]}
+          <label class="mode-option" class:selected={clockFormat === val}>
+            <input type="radio" bind:group={clockFormat} value={val}
+              on:change={async () => {
+                await setClockFormat(val);
+                dispatch('clockFormatChange', val);
+              }} />
+            <span class="mode-label">{label}</span>
+          </label>
         {/each}
       </div>
     </section>
@@ -359,6 +402,13 @@
   .mode-option input[type=radio] { display: none; }
   .mode-label { font-size: 13px; color: var(--text-primary, #ddd); flex: 1; }
   .mode-name { font-size: 10px; color: var(--text-muted, #556); }
+
+  /* Clock format */
+  .clock-format-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
 
   /* Toggle */
   .toggle-row {

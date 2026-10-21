@@ -34,8 +34,15 @@ pub fn start_refresh_timer(app: AppHandle) {
             if hour_changed {
                 // Refresh tray icon + tooltip immediately at the boundary
                 crate::tray::refresh_tray(&app);
-                // Send a system notification
-                send_hour_notification(&app, &hour);
+                // Send a system notification (if enabled)
+                let notify = {
+                    let state = app.state::<SharedState>();
+                    let guard = state.lock().unwrap();
+                    guard.notifications_enabled
+                };
+                if notify {
+                    send_hour_notification(&app, &hour);
+                }
             }
 
             last_hour_index = current_index;
@@ -53,10 +60,17 @@ pub fn start_refresh_timer(app: AppHandle) {
 fn send_hour_notification(app: &AppHandle, hour: &astrohour_core::types::PlanetaryHour) {
     use tauri_plugin_notification::NotificationExt;
 
+    let clock_fmt = {
+        let state = app.state::<SharedState>();
+        let guard = state.lock().unwrap();
+        guard.clock_format.clone()
+    };
+    let fmt = if clock_fmt == "24" { "%H:%M" } else { "%-I:%M %p" };
+
     let glyph      = hour.planet.symbol();           // ♃  ♄  ☉  etc.
     let name       = hour.planet.name();             // Jupiter
-    let start_str  = hour.start.format("%H:%M").to_string();
-    let end_str    = hour.end.format("%H:%M").to_string();
+    let start_str  = hour.start.format(fmt).to_string();
+    let end_str    = hour.end.format(fmt).to_string();
     let day_night  = if hour.is_day { "Day" } else { "Night" };
     let seq        = hour.sequence;                  // 1-12
 
