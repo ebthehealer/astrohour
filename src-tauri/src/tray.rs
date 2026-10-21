@@ -252,11 +252,6 @@ mod planet_icon {
         Some((rgba, w, h))
     }
 
-    /// Return a Tauri Image (for startup or Windows).
-    pub fn render(status_text: &str, color: &str) -> Option<Image<'static>> {
-        let (rgba, w, h) = render_rgba(status_text, color)?;
-        Some(Image::new_owned(rgba, w, h))
-    }
 }
 
 // ── Windows tray icon ───────────────────────────────────────────────────────────
@@ -272,13 +267,6 @@ mod win_icon {
 #[cfg(target_os = "linux")]
 mod linux_icon {
     use tauri::image::Image;
-
-    pub fn xdg_icon_dir() -> Option<std::path::PathBuf> {
-        let base = std::path::PathBuf::from(std::env::var("HOME").ok()?);
-        let dir = base.join(".local/share/icons/hicolor/32x32/apps");
-        std::fs::create_dir_all(&dir).ok()?;
-        Some(dir)
-    }
 
     pub fn render_rgba(status_text: &str, color: &str) -> Option<(Vec<u8>, u32, u32)> {
         super::planet_icon::render_rgba(status_text, color)

@@ -13,14 +13,6 @@ use astrohour_core::{
 };
 use chrono::{NaiveDate, Utc, FixedOffset};
 
-/// Return today's date in the user's local timezone.
-/// utc_offset_mins: e.g. -240 for EDT, -300 for EST, 60 for CET.
-fn local_today(utc_offset_mins: Option<i32>) -> NaiveDate {
-    let offset_secs = utc_offset_mins.unwrap_or(0) * 60;
-    let tz = FixedOffset::east_opt(offset_secs).unwrap_or(FixedOffset::east_opt(0).unwrap());
-    Utc::now().with_timezone(&tz).date_naive()
-}
-
 /// Returns (current_hour, astrological_date) using the user's UTC offset.
 /// Mirrors the Go apothecary logic: if before today's sunrise, use yesterday.
 fn current_hour_and_date(loc: Location, utc_offset_mins: Option<i32>) -> (PlanetaryHour, NaiveDate) {
