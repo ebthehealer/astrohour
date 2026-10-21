@@ -48,11 +48,6 @@ pub enum LicenseStatus {
     Invalid,
 }
 
-impl LicenseStatus {
-    pub fn is_premium(&self) -> bool {
-        matches!(self, LicenseStatus::Active { .. })
-    }
-}
 
 // ── Validation errors ──────────────────────────────────────────────────────────
 
@@ -165,25 +160,7 @@ pub fn base32_decode(s: &str) -> Option<Vec<u8>> {
     Some(out)
 }
 
-/// RFC 4648 base32 encoder (no padding, uppercase).
-pub fn base32_encode(data: &[u8]) -> String {
-    const ALPHA: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-    let mut out = String::new();
-    let mut bits: u64 = 0;
-    let mut bits_left: u32 = 0;
-    for &byte in data {
-        bits = (bits << 8) | byte as u64;
-        bits_left += 8;
-        while bits_left >= 5 {
-            bits_left -= 5;
-            out.push(ALPHA[(bits >> bits_left) as usize & 0x1f] as char);
-        }
-    }
-    if bits_left > 0 {
-        out.push(ALPHA[((bits << (5 - bits_left)) & 0x1f) as usize] as char);
-    }
-    out
-}
+
 
 // ── Managed state ──────────────────────────────────────────────────────────────
 
