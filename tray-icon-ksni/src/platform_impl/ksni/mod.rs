@@ -186,9 +186,11 @@ impl ksni::Tray for StatusNotifierTray {
     }
 
     fn icon_name(&self) -> String {
-        // Return a generation-tagged name so KDE's SNI cache sees a new icon
-        // identity on every update and re-fetches the pixmap.
-        format!("astrohour-icon-{}", self.icon_generation)
+        // Return empty string so KDE has no theme icon name to match and is
+        // forced to use icon_pixmap() exclusively. If we return a name that
+        // matches anything in the hicolor theme (including the installed app
+        // icon), KDE substitutes it for our glyph pixmap after a few seconds.
+        String::new()
     }
 
     fn icon_pixmap(&self) -> Vec<ksni::Icon> {
