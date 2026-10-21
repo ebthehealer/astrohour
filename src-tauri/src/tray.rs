@@ -304,11 +304,29 @@ mod linux_icon {
 
 pub fn refresh_tray(app: &tauri::AppHandle) {
     use astrohour_core::display::status_bar_text;
+    use astrohour_core::hours::current_hour;
+    use chrono::Local;
 
-    let (text, color) = {
+    let (text, color, tooltip) = {
         let state = app.state::<SharedState>();
         let s = state.lock().unwrap();
-        (status_bar_text(s.location, s.display_mode), s.tray_icon_color.clone())
+        let bar   = status_bar_text(s.location, s.display_mode);
+        let color = s.tray_icon_color.clone();
+
+        // Build a rich tooltip: "♃ Jupiter Hour · 38m remaining (07:12 – 08:06)"
+        let hour       = current_hour(s.location);
+        let now        = Local::now();
+        let mins_left  = hour.minutes_remaining_from(now);
+        let glyph      = hour.planet.symbol();
+        let name       = hour.planet.name();
+        let start_str  = hour.start.format("%H:%M");
+        let end_str    = hour.end.format("%H:%M");
+        let mins_int   = mins_left.round() as i64;
+        let tip = format!(
+            "{glyph} {name} Hour · {mins_int}m remaining ({start_str} – {end_str})"
+        );
+
+        (bar, color, tip)
     };
 
     eprintln!("[tray] refresh: text={:?} color={:?}", text, color);
@@ -319,8 +337,9 @@ pub fn refresh_tray(app: &tauri::AppHandle) {
     #[cfg(not(target_os = "linux"))]
     let icon_bytes: Option<(Vec<u8>, u32, u32)> = None;
 
-    let app2 = app.clone();
-    let text2 = text.clone();
+    let app2    = app.clone();
+    let text2   = text.clone();
+    let tip2    = tooltip.clone();
     let _ = app.run_on_main_thread(move || {
         let Some(tray) = app2.tray_by_id("main") else {
             eprintln!("[tray] ERROR: tray_by_id('main') returned None on main thread");
@@ -328,7 +347,7 @@ pub fn refresh_tray(app: &tauri::AppHandle) {
         };
 
         let _ = tray.set_title(Some(&text2));
-        let _ = tray.set_tooltip(Some(&text2));
+        let _ = tray.set_tooltip(Some(&tip2));
 
         #[cfg(target_os = "windows")]
         if let Some(icon) = win_icon::render(&text2) {
