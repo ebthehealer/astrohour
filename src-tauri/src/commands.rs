@@ -59,6 +59,10 @@ pub struct AppState {
     pub location_set: bool,
     /// Tray icon color: "white", "gold", or a hex string like "#ff8800"
     pub tray_icon_color: String,
+    /// Whether to send a system notification on each hour change
+    pub notifications_enabled: bool,
+    /// "12" or "24"
+    pub clock_format: String,
 }
 
 impl Default for AppState {
@@ -68,6 +72,8 @@ impl Default for AppState {
             display_mode: DisplayMode::Short,
             location_set: false,
             tray_icon_color: "auto".to_string(),
+            notifications_enabled: true,
+            clock_format: "12".to_string(),
         }
     }
 }
@@ -111,6 +117,12 @@ pub fn init_prefs(
     if let Some(color) = store.get("tray_icon_color").and_then(|v| v.as_str().map(String::from)) {
         s.tray_icon_color = color;
     }
+    if let Some(v) = store.get("notifications_enabled").and_then(|v| v.as_bool()) {
+        s.notifications_enabled = v;
+    }
+    if let Some(v) = store.get("clock_format").and_then(|v| v.as_str().map(String::from)) {
+        s.clock_format = v;
+    }
 
     // Generate device secret if not already present.
     // Used as the stronghold vault password — stable per-install, invisible to user.
@@ -134,7 +146,9 @@ pub fn init_prefs(
             DisplayMode::Full     => "Full".into(),
         },
         device_secret,
-        tray_icon_color: s.tray_icon_color.clone(),
+        tray_icon_color:       s.tray_icon_color.clone(),
+        notifications_enabled: s.notifications_enabled,
+        clock_format:          s.clock_format.clone(),
     })
 }
 
@@ -149,12 +163,14 @@ fn generate_device_secret() -> String {
 
 #[derive(serde::Serialize)]
 pub struct InitPrefsResult {
-    pub location_set:     bool,
-    pub lat:              f64,
-    pub lon:              f64,
-    pub display_mode:     String,
-    pub device_secret:    String,
-    pub tray_icon_color:  String,
+    pub location_set:            bool,
+    pub lat:                     f64,
+    pub lon:                     f64,
+    pub display_mode:            String,
+    pub device_secret:           String,
+    pub tray_icon_color:         String,
+    pub notifications_enabled:   bool,
+    pub clock_format:            String,
 }
 
 /// Persist current prefs to store.
@@ -176,6 +192,8 @@ pub fn save_prefs(
         DisplayMode::Full     => "Full",
     });
     store.set("tray_icon_color", s.tray_icon_color.clone());
+    store.set("notifications_enabled", s.notifications_enabled);
+    store.set("clock_format", s.clock_format.clone());
     store.save().map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -189,6 +207,31 @@ pub fn set_tray_icon_color(
     state.lock().unwrap().tray_icon_color = color;
     crate::tray::refresh_tray(&app);
     Ok(())
+}
+
+#[tauri::command]
+pub fn set_notifications_enabled(state: State<'_, SharedState>, enabled: bool) -> Result<(), String> {
+    state.lock().unwrap().notifications_enabled = enabled;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_notifications_enabled(state: State<'_, SharedState>) -> bool {
+    state.lock().unwrap().notifications_enabled
+}
+
+#[tauri::command]
+pub fn set_clock_format(state: State<'_, SharedState>, format: String) -> Result<(), String> {
+    if format != "12" && format != "24" {
+        return Err(format!("invalid clock format {:?}: must be '12' or '24'", format));
+    }
+    state.lock().unwrap().clock_format = format;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_clock_format(state: State<'_, SharedState>) -> String {
+    state.lock().unwrap().clock_format.clone()
 }
 
 // ── Location ──────────────────────────────────────────────────────────────────

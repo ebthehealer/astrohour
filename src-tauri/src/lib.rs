@@ -62,6 +62,10 @@ pub fn run() {
             commands::get_display_mode,
             commands::set_display_mode,
             commands::set_tray_icon_color,
+            commands::get_notifications_enabled,
+            commands::set_notifications_enabled,
+            commands::get_clock_format,
+            commands::set_clock_format,
             // Notes helpers
             commands::make_planet_key,
             commands::today_string,
