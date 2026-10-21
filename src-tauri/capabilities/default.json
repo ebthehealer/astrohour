@@ -37,6 +37,7 @@
     "stronghold:allow-execute-procedure",
     "stronghold:allow-destroy",
     "core:window:allow-hide",
-    "core:window:allow-start-dragging"
+    "core:window:allow-start-dragging",
+    "notification:allow-show"
   ]
 }

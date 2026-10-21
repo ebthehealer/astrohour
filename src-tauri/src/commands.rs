@@ -6,8 +6,7 @@
 
 use astrohour_core::{
     Location, DisplayMode,
-    types::{DaySchedule, MoonPhase, PlanetaryHour},
-    hours::current_hour,
+    types::{MoonPhase, PlanetaryHour},
     lunar::moon_phase,
     display::status_bar_text,
     day_schedule,
@@ -403,7 +402,7 @@ use crate::license::{validate_key, LicenseStatus, SharedLicense};
 /// special "linux-free" key hash so the frontend knows to show
 /// a donation prompt instead of a license UI.
 #[tauri::command]
-pub fn get_license_status(license: State<SharedLicense>) -> LicenseStatus {
+pub fn get_license_status(_license: State<SharedLicense>) -> LicenseStatus {
     #[cfg(target_os = "linux")]
     {
         return LicenseStatus::Active {
