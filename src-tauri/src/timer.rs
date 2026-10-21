@@ -82,6 +82,7 @@ fn send_hour_notification(app: &AppHandle, hour: &astrohour_core::types::Planeta
         .builder()
         .title(&title)
         .body(&body)
+        .icon("com.astrohour.app")  // matches the hicolor icon installed by install-dev-desktop.sh
         .show();
 
     if let Err(e) = result {
