@@ -163,8 +163,6 @@ mod macos_panel {
 // Symbola font. At render time we tint the white pixels to the chosen color.
 
 mod planet_icon {
-    use tauri::image::Image;
-
     // Embed all 7 PNGs at compile time
     const SUN:     &[u8] = include_bytes!("../icons/planets/sun.png");
     const MOON:    &[u8] = include_bytes!("../icons/planets/moon.png");
