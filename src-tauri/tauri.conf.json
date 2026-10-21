@@ -42,6 +42,31 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "category": "Utility",
+    "shortDescription": "Planetary hours in your status bar",
+    "longDescription": "AstroHour shows the current planetary hour, moon phase, and lunar day in your system status bar. Includes a full 24-hour schedule, notes per planetary hour, hour-change notifications, and multiple color themes. Free and fully featured on Linux.",
+    "linux": {
+      "deb": {
+        "section": "science",
+        "priority": "optional",
+        "depends": [
+          "libayatana-appindicator3-1 | libappindicator3-1"
+        ],
+        "desktopTemplate": "../packaging/astrohour.desktop.hbs"
+      },
+      "rpm": {
+        "release": "1",
+        "desktopTemplate": "../packaging/astrohour.desktop.hbs",
+        "depends": [
+          "webkit2gtk4.1",
+          "gtk3",
+          "libappindicator-gtk3"
+        ]
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    }
   }
 }
