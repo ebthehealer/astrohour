@@ -3,6 +3,7 @@
 mod commands;
 mod db;
 mod license;
+mod sound;
 mod tray;
 mod timer;
 
@@ -66,6 +67,14 @@ pub fn run() {
             commands::set_notifications_enabled,
             commands::get_clock_format,
             commands::set_clock_format,
+            // Reminders & sounds
+            commands::get_reminder_minutes,
+            commands::set_reminder_minutes,
+            commands::get_hour_sound,
+            commands::set_hour_sound,
+            commands::get_reminder_sound,
+            commands::set_reminder_sound,
+            commands::preview_sound,
             // Notes helpers
             commands::make_planet_key,
             commands::today_string,

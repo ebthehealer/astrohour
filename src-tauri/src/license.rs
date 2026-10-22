@@ -230,12 +230,49 @@ mod tests {
         Ok(sha256_hex(key.as_bytes()))
     }
 
+    /// Test-only RFC 4648 base32 encoder (no padding), the inverse of the
+    /// decoder under test. Keys are minted by the Cloudflare Worker, which
+    /// carries the production encoder, so this lives here purely to give the
+    /// round-trip test something to compare against.
+    fn base32_encode(data: &[u8]) -> String {
+        const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+        let mut out = String::new();
+        let mut buf: u32 = 0;
+        let mut bits = 0u32;
+        for &byte in data {
+            buf = (buf << 8) | u32::from(byte);
+            bits += 8;
+            while bits >= 5 {
+                out.push(ALPHABET[((buf >> (bits - 5)) & 0x1f) as usize] as char);
+                bits -= 5;
+            }
+        }
+        if bits > 0 {
+            out.push(ALPHABET[((buf << (5 - bits)) & 0x1f) as usize] as char);
+        }
+        out
+    }
+
     #[test]
     fn base32_roundtrip() {
-        let data = b"hello world test";
-        let enc  = base32_encode(data);
-        let dec  = base32_decode(&enc).unwrap();
-        assert_eq!(&dec, data);
+        // Lengths that exercise every bit-alignment case.
+        for data in [
+            &b""[..],
+            &b"f"[..],
+            &b"fo"[..],
+            &b"foo"[..],
+            &b"foob"[..],
+            &b"fooba"[..],
+            &b"hello world test"[..],
+        ] {
+            let enc = base32_encode(data);
+            let dec = base32_decode(&enc).unwrap();
+            assert_eq!(dec, data, "round-trip failed for {data:?} -> {enc}");
+        }
+
+        // RFC 4648 test vectors, unpadded.
+        assert_eq!(base32_encode(b"foobar"), "MZXW6YTBOI");
+        assert_eq!(base32_encode(b"foob"), "MZXW6YQ");
     }
 
     #[test]

@@ -6,7 +6,14 @@
     formatCoord,
     setNotificationsEnabled,
     setClockFormat,
+    setReminderMinutes,
+    setHourSound,
+    setReminderSound,
+    previewSound,
+    REMINDER_CHOICES,
+    SOUND_OPTIONS,
     type DisplayMode,
+    type SoundName,
   } from './api';
   import { detectLocation } from './geo';
   import { themes, type Theme } from './themes';
@@ -19,6 +26,11 @@
   export let trayIconColor: string = 'white';
   export let notificationsEnabled: boolean = true;
   export let clockFormat: string = '12';
+  export let reminderMinutes: number[] = [];
+  export let hourSound: SoundName = 'chime';
+  export let reminderSound: SoundName = 'chime';
+  /** false when no audio player was found on this machine */
+  export let soundPlayback: boolean = true;
 
   // 'auto' = white, letting the DE composite it (correct for SNI on dark panels).
   // 'accent' = resolved at render time from the current theme's --accent variable.
@@ -41,6 +53,9 @@
     trayColorChange: string;
     notificationsChange: boolean;
     clockFormatChange: string;
+    remindersChange: number[];
+    hourSoundChange: SoundName;
+    reminderSoundChange: SoundName;
   }>();
 
   // ── Local form state
@@ -94,6 +109,9 @@
       await setAutostart(autostart);
       await setNotificationsEnabled(notificationsEnabled);
       await setClockFormat(clockFormat);
+      await setReminderMinutes(reminderMinutes);
+      await setHourSound(hourSound);
+      await setReminderSound(reminderSound);
       await savePrefs();
       dispatch('saved', { lat: newLat, lon: newLon, displayMode: mode });
       dispatch('close');
@@ -101,6 +119,40 @@
       saveError = String(e);
     } finally {
       saving = false;
+    }
+  }
+
+  // ── Reminders
+  // Applied immediately (like the notifications toggle) and persisted on Save.
+  async function toggleReminder(m: number) {
+    reminderMinutes = reminderMinutes.includes(m)
+      ? reminderMinutes.filter(v => v !== m)
+      : [...reminderMinutes, m].sort((a, b) => a - b);
+    await setReminderMinutes(reminderMinutes);
+    dispatch('remindersChange', reminderMinutes);
+  }
+
+  // ── Sounds
+  let soundError = '';
+
+  async function chooseHourSound(value: SoundName) {
+    hourSound = value;
+    await setHourSound(value);
+    dispatch('hourSoundChange', value);
+  }
+
+  async function chooseReminderSound(value: SoundName) {
+    reminderSound = value;
+    await setReminderSound(value);
+    dispatch('reminderSoundChange', value);
+  }
+
+  async function preview(sound: SoundName) {
+    soundError = '';
+    try {
+      await previewSound(sound);
+    } catch (e) {
+      soundError = String(e);
     }
   }
 </script>
@@ -230,6 +282,75 @@
           <div class="toggle-thumb"></div>
         </div>
       </label>
+    </section>
+
+    <!-- Reminders -->
+    <section>
+      <div class="section-title">Reminders</div>
+      <p class="hint">
+        Get a heads-up before the current planetary hour ends.
+        {#if !notificationsEnabled}
+          <span class="warn">Notifications are turned off above, so reminders won't appear.</span>
+        {:else if reminderMinutes.length === 0}
+          None selected — reminders are off.
+        {/if}
+      </p>
+      <div class="chip-grid">
+        {#each REMINDER_CHOICES as m}
+          <label class="chip" class:selected={reminderMinutes.includes(m)}>
+            <input type="checkbox" checked={reminderMinutes.includes(m)}
+              on:change={() => toggleReminder(m)} />
+            <span>{m} min</span>
+          </label>
+        {/each}
+      </div>
+    </section>
+
+    <!-- Notification sounds -->
+    <section>
+      <div class="section-title">Notification Sounds</div>
+
+      {#if !soundPlayback}
+        <p class="hint warn">
+          No audio player found on this system, so the built-in sounds can't
+          play. Install <code>pipewire-utils</code> (pw-play) or
+          <code>pulseaudio-utils</code> (paplay) to enable them.
+        </p>
+      {/if}
+
+      <div class="sound-row">
+        <span class="sound-label">Hour change</span>
+        <div class="sound-controls">
+          <select aria-label="Hour-change sound" value={hourSound}
+            on:change={(e) => chooseHourSound((e.currentTarget as HTMLSelectElement).value as SoundName)}>
+            {#each SOUND_OPTIONS as opt}
+              <option value={opt.id}>{opt.label}</option>
+            {/each}
+          </select>
+          <button class="preview-btn" title="Preview"
+            disabled={hourSound === 'none' || !soundPlayback}
+            on:click={() => preview(hourSound)}>▶</button>
+        </div>
+      </div>
+
+      <div class="sound-row">
+        <span class="sound-label">Reminders</span>
+        <div class="sound-controls">
+          <select aria-label="Reminder sound" value={reminderSound}
+            on:change={(e) => chooseReminderSound((e.currentTarget as HTMLSelectElement).value as SoundName)}>
+            {#each SOUND_OPTIONS as opt}
+              <option value={opt.id}>{opt.label}</option>
+            {/each}
+          </select>
+          <button class="preview-btn" title="Preview"
+            disabled={reminderSound === 'none' || !soundPlayback}
+            on:click={() => preview(reminderSound)}>▶</button>
+        </div>
+      </div>
+
+      {#if soundError}
+        <div class="sound-error">{soundError}</div>
+      {/if}
     </section>
 
     <!-- Clock format -->
@@ -408,6 +529,94 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+  }
+
+  /* Reminders */
+  .hint {
+    font-size: 11px;
+    color: var(--text-muted, #778);
+    margin: 0 0 10px;
+    line-height: 1.45;
+  }
+  .hint.warn { color: #d8a24a; }
+  .hint code {
+    font-size: 10px;
+    background: var(--bg-elevated, #1a3055);
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+  .chip-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--bg-elevated, #1a3055);
+    font-size: 12px;
+    color: var(--text-secondary, #aaa);
+    cursor: pointer;
+    user-select: none;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+  }
+  .chip:hover { border-color: var(--bg-highlight, #1a4a80); }
+  .chip.selected {
+    border-color: var(--accent, #e0b86a);
+    background: var(--bg-highlight, #1a3a5c);
+    color: var(--text-primary, #fff);
+    font-weight: 600;
+  }
+  .chip input[type=checkbox] { display: none; }
+
+  /* Sounds */
+  .sound-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .sound-label {
+    font-size: 13px;
+    color: var(--text-primary, #ddd);
+  }
+  .sound-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .sound-controls select {
+    background: var(--bg-elevated, #0f3460);
+    border: 1px solid var(--bg-highlight, #1a4a80);
+    border-radius: 5px;
+    color: var(--text-primary, #ddd);
+    font-size: 12px;
+    padding: 4px 6px;
+    min-width: 118px;
+  }
+  .preview-btn {
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-elevated, #0f3460);
+    border: 1px solid var(--bg-highlight, #1a4a80);
+    border-radius: 5px;
+    color: var(--accent, #e0b86a);
+    font-size: 10px;
+    cursor: pointer;
+    padding: 0;
+  }
+  .preview-btn:hover:not(:disabled) { border-color: var(--accent, #e0b86a); }
+  .preview-btn:disabled { opacity: 0.35; cursor: default; }
+  .sound-error {
+    margin-top: 6px;
+    font-size: 11px;
+    color: #e06060;
   }
 
   /* Toggle */
