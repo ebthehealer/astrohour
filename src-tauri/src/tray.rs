@@ -290,7 +290,6 @@ mod linux_icon {
 
 pub fn refresh_tray(app: &tauri::AppHandle) {
     use astrohour_core::display::status_bar_text;
-    use chrono::Local;
 
     let (text, color, tooltip) = {
         let state = app.state::<SharedState>();
@@ -298,22 +297,10 @@ pub fn refresh_tray(app: &tauri::AppHandle) {
         let bar   = status_bar_text(s.location, s.display_mode);
         let color = s.tray_icon_color.clone();
 
-        // Build a rich tooltip: "♃ Jupiter Hour · 38m remaining (7:12 AM – 8:06 AM)"
         // Use the frontend-supplied offset so the tooltip agrees with the window.
-        let hour       = crate::commands::current_hour_and_date(s.location, s.utc_offset_mins).0;
-        let now        = crate::commands::local_now(s.utc_offset_mins);
-        // minutes_remaining_from takes a Local timestamp; same instant, just
-        // re-homed, since the offset we used above may differ from the system's.
-        let mins_left  = hour.minutes_remaining_from(now.with_timezone(&Local));
-        let glyph      = hour.planet.symbol();
-        let name       = hour.planet.name();
-        let fmt        = if s.clock_format == "24" { "%H:%M" } else { "%-I:%M %p" };
-        let start_str  = hour.start.format(fmt);
-        let end_str    = hour.end.format(fmt);
-        let mins_int   = mins_left.round() as i64;
-        let tip = format!(
-            "{glyph} {name} Hour · {mins_int}m remaining ({start_str} – {end_str})"
-        );
+        let hour = crate::commands::current_hour_and_date(s.location, s.utc_offset_mins).0;
+        let now  = crate::commands::local_now(s.utc_offset_mins);
+        let tip  = tooltip_line(&hour, now, &s.clock_format);
 
         (bar, color, tip)
     };
@@ -359,9 +346,108 @@ pub fn refresh_tray(app: &tauri::AppHandle) {
     let _ = app.emit("astro:tick", ());
 }
 
+/// The second line of the tray hover card.
+///
+/// The hover card renders the tray title as its heading and this string
+/// underneath, so the planet and hour name must not appear here — the heading
+/// already reads "♃ Jupiter Hour".
+fn tooltip_line(
+    hour: &astrohour_core::types::PlanetaryHour,
+    now: chrono::DateTime<chrono::FixedOffset>,
+    clock_format: &str,
+) -> String {
+    use chrono::Local;
+
+    // minutes_remaining_from takes a Local timestamp; same instant, just
+    // re-homed, since the offset we used above may differ from the system's.
+    let mins = hour.minutes_remaining_from(now.with_timezone(&Local)).round() as i64;
+    let fmt = if clock_format == "24" { "%H:%M" } else { "%-I:%M %p" };
+
+    format!(
+        "{mins}m remaining ({} – {})",
+        hour.start.format(fmt),
+        hour.end.format(fmt)
+    )
+}
+
 fn initial_tray_text(app: &App) -> String {
     use astrohour_core::display::status_bar_text;
     let state = app.state::<SharedState>();
     let s = state.lock().unwrap();
     status_bar_text(s.location, s.display_mode)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use astrohour_core::types::{Planet, PlanetaryHour};
+    use chrono::{Local, NaiveDate, TimeZone};
+
+    fn local(y: i32, mo: u32, d: u32, h: u32, mi: u32) -> chrono::DateTime<Local> {
+        let naive = NaiveDate::from_ymd_opt(y, mo, d)
+            .unwrap()
+            .and_hms_opt(h, mi, 0)
+            .unwrap();
+        Local.from_local_datetime(&naive).unwrap()
+    }
+
+    /// 4:05–4:59 PM on 4 March 2026.
+    fn sample_hour() -> PlanetaryHour {
+        PlanetaryHour {
+            index: 9,
+            planet: Planet::Venus,
+            start: local(2026, 3, 4, 16, 5),
+            end: local(2026, 3, 4, 16, 59),
+            is_day: true,
+            sequence: 9,
+        }
+    }
+
+    #[test]
+    fn tooltip_line_is_just_remaining_time_and_the_range() {
+        let hour = sample_hour();
+        let now = local(2026, 3, 4, 16, 6).fixed_offset();
+
+        assert_eq!(
+            tooltip_line(&hour, now, "12"),
+            "53m remaining (4:05 PM – 4:59 PM)"
+        );
+    }
+
+    /// The hover card prints the tray title as a heading directly above this
+    /// line, so repeating the planet or the word "Hour" reads as a duplicate.
+    #[test]
+    fn tooltip_line_never_repeats_the_heading() {
+        let hour = sample_hour();
+        let now = local(2026, 3, 4, 16, 6).fixed_offset();
+
+        for clock_format in ["12", "24"] {
+            let line = tooltip_line(&hour, now, clock_format);
+            assert!(!line.contains("Hour"), "duplicates heading: {line}");
+            assert!(!line.contains("Venus"), "duplicates heading: {line}");
+            assert!(!line.contains('♀'), "duplicates heading: {line}");
+        }
+    }
+
+    #[test]
+    fn tooltip_line_honours_clock_format() {
+        let hour = sample_hour();
+        let now = local(2026, 3, 4, 16, 6).fixed_offset();
+
+        assert_eq!(
+            tooltip_line(&hour, now, "24"),
+            "53m remaining (16:05 – 16:59)"
+        );
+    }
+
+    #[test]
+    fn tooltip_line_clamps_once_the_hour_has_ended() {
+        let hour = sample_hour();
+        let now = local(2026, 3, 4, 17, 30).fixed_offset();
+
+        assert!(
+            tooltip_line(&hour, now, "12").starts_with("0m remaining"),
+            "should not go negative"
+        );
+    }
 }
