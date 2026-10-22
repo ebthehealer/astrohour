@@ -28,6 +28,7 @@ if command -v kbuildsycoca6 >/dev/null 2>&1; then
 fi
 
 echo
-echo "==> Installed. Now quit any running AstroHour (tray icon → Quit) and"
+echo "==> Installed: $(rpm -q astro-hour)"
+echo "    Now quit any running AstroHour (tray icon → Quit) and"
 echo "    relaunch it from the application menu. A process already running"
 echo "    keeps executing the old binary until it is restarted."
