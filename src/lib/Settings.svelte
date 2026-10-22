@@ -321,12 +321,18 @@
       <div class="sound-row">
         <span class="sound-label">Hour change</span>
         <div class="sound-controls">
-          <select aria-label="Hour-change sound" value={hourSound}
-            on:change={(e) => chooseHourSound((e.currentTarget as HTMLSelectElement).value as SoundName)}>
-            {#each SOUND_OPTIONS as opt}
-              <option value={opt.id}>{opt.label}</option>
-            {/each}
-          </select>
+          <div class="select-wrap">
+            <select aria-label="Hour-change sound" value={hourSound}
+              on:change={(e) => chooseHourSound((e.currentTarget as HTMLSelectElement).value as SoundName)}>
+              {#each SOUND_OPTIONS as opt}
+                <option value={opt.id}>{opt.label}</option>
+              {/each}
+            </select>
+            <svg class="caret" viewBox="0 0 10 6" aria-hidden="true">
+              <path d="M1 1l4 4 4-4" fill="none" stroke="currentColor"
+                stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </div>
           <button class="preview-btn" title="Preview"
             disabled={hourSound === 'none' || !soundPlayback}
             on:click={() => preview(hourSound)}>▶</button>
@@ -336,12 +342,18 @@
       <div class="sound-row">
         <span class="sound-label">Reminders</span>
         <div class="sound-controls">
-          <select aria-label="Reminder sound" value={reminderSound}
-            on:change={(e) => chooseReminderSound((e.currentTarget as HTMLSelectElement).value as SoundName)}>
-            {#each SOUND_OPTIONS as opt}
-              <option value={opt.id}>{opt.label}</option>
-            {/each}
-          </select>
+          <div class="select-wrap">
+            <select aria-label="Reminder sound" value={reminderSound}
+              on:change={(e) => chooseReminderSound((e.currentTarget as HTMLSelectElement).value as SoundName)}>
+              {#each SOUND_OPTIONS as opt}
+                <option value={opt.id}>{opt.label}</option>
+              {/each}
+            </select>
+            <svg class="caret" viewBox="0 0 10 6" aria-hidden="true">
+              <path d="M1 1l4 4 4-4" fill="none" stroke="currentColor"
+                stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </div>
           <button class="preview-btn" title="Preview"
             disabled={reminderSound === 'none' || !soundPlayback}
             on:click={() => preview(reminderSound)}>▶</button>
@@ -588,14 +600,45 @@
     align-items: center;
     gap: 6px;
   }
+  /* A bare <select> is drawn by the toolkit, which ignores our colour and
+     paints the value with the system theme's text colour — near-black on our
+     dark panel. appearance:none hands the closed state back to CSS, and the
+     caret is a real SVG so it can inherit the theme colour. */
+  .select-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+  .select-wrap .caret {
+    position: absolute;
+    right: 8px;
+    width: 9px;
+    height: 6px;
+    color: var(--accent, #e0b86a);
+    pointer-events: none;
+  }
   .sound-controls select {
+    -webkit-appearance: none;
+    appearance: none;
     background: var(--bg-elevated, #0f3460);
     border: 1px solid var(--bg-highlight, #1a4a80);
     border-radius: 5px;
     color: var(--text-primary, #ddd);
+    font-family: inherit;
     font-size: 12px;
-    padding: 4px 6px;
+    padding: 4px 24px 4px 8px;
     min-width: 118px;
+    cursor: pointer;
+  }
+  .sound-controls select:hover { border-color: var(--accent, #e0b86a); }
+  .sound-controls select:focus-visible {
+    outline: 1px solid var(--accent, #e0b86a);
+    outline-offset: 1px;
+  }
+  /* The popup list is still toolkit-drawn, so give it explicit colours. */
+  .sound-controls select option {
+    background: var(--bg-elevated, #0f3460);
+    color: var(--text-primary, #ddd);
   }
   .preview-btn {
     width: 26px;
