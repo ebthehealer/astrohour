@@ -538,7 +538,7 @@
     margin: 0 0 10px;
     line-height: 1.45;
   }
-  .hint.warn { color: #d8a24a; }
+  .hint.warn, .hint .warn { color: #d8a24a; }
   .hint code {
     font-size: 10px;
     background: var(--bg-elevated, #1a3055);
