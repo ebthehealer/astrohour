@@ -290,7 +290,6 @@ mod linux_icon {
 
 pub fn refresh_tray(app: &tauri::AppHandle) {
     use astrohour_core::display::status_bar_text;
-    use astrohour_core::hours::current_hour;
     use chrono::Local;
 
     let (text, color, tooltip) = {
@@ -300,9 +299,12 @@ pub fn refresh_tray(app: &tauri::AppHandle) {
         let color = s.tray_icon_color.clone();
 
         // Build a rich tooltip: "♃ Jupiter Hour · 38m remaining (7:12 AM – 8:06 AM)"
-        let hour       = current_hour(s.location);
-        let now        = Local::now();
-        let mins_left  = hour.minutes_remaining_from(now);
+        // Use the frontend-supplied offset so the tooltip agrees with the window.
+        let hour       = crate::commands::current_hour_and_date(s.location, s.utc_offset_mins).0;
+        let now        = crate::commands::local_now(s.utc_offset_mins);
+        // minutes_remaining_from takes a Local timestamp; same instant, just
+        // re-homed, since the offset we used above may differ from the system's.
+        let mins_left  = hour.minutes_remaining_from(now.with_timezone(&Local));
         let glyph      = hour.planet.symbol();
         let name       = hour.planet.name();
         let fmt        = if s.clock_format == "24" { "%H:%M" } else { "%-I:%M %p" };

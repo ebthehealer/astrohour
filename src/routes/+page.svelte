@@ -7,6 +7,7 @@
     initPrefs, getDaySchedule, getCurrentHour, getMoonPhase,
     planetSymbol, phaseEmoji, phaseName, formatTime, minutesUntil, formatCoord,
     type DaySchedule, type PlanetaryHour, type MoonPhase, type DisplayMode,
+    type SoundName,
   } from '$lib/api';
   import FirstRun from '$lib/FirstRun.svelte';
   import Settings from '$lib/Settings.svelte';
@@ -52,6 +53,10 @@
   let trayIconColor = 'auto';
   let notificationsEnabled = true;
   let clockFormat = '12';
+  let reminderMinutes: number[] = [];
+  let hourSound: SoundName = 'chime';
+  let reminderSound: SoundName = 'chime';
+  let soundPlayback = true;
 
   // Listeners / timers
   let unlisten: (() => void) | null = null;
@@ -71,6 +76,10 @@
     trayIconColor = prefs.tray_icon_color ?? 'white';
     notificationsEnabled = prefs.notifications_enabled ?? true;
     clockFormat = prefs.clock_format ?? '12';
+    reminderMinutes = prefs.reminder_minutes ?? [];
+    hourSound = prefs.hour_sound ?? 'chime';
+    reminderSound = prefs.reminder_sound ?? 'chime';
+    soundPlayback = prefs.sound_playback ?? true;
     const savedTheme = (prefs as any).theme ?? DEFAULT_THEME;
     currentTheme = savedTheme in themes ? savedTheme : DEFAULT_THEME;
     applyTheme(themes[currentTheme]);
@@ -245,6 +254,7 @@
   <Settings
     {lat} {lon} {displayMode} {currentTheme} {trayIconColor}
     {notificationsEnabled} {clockFormat}
+    {reminderMinutes} {hourSound} {reminderSound} {soundPlayback}
     on:close={() => showSettings = false}
     on:saved={onSettingsSaved}
     on:themeChange={(e) => {
@@ -254,6 +264,9 @@
     on:trayColorChange={(e) => { trayIconColor = e.detail; }}
     on:notificationsChange={(e) => { notificationsEnabled = e.detail; }}
     on:clockFormatChange={(e) => { clockFormat = e.detail; }}
+    on:remindersChange={(e) => { reminderMinutes = e.detail; }}
+    on:hourSoundChange={(e) => { hourSound = e.detail; }}
+    on:reminderSoundChange={(e) => { reminderSound = e.detail; }}
   />
 
 {:else}

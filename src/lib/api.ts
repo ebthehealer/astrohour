@@ -23,6 +23,11 @@ export interface InitPrefsResult {
   tray_icon_color:         string;  // "white", "gold", or "#rrggbb"
   notifications_enabled:   boolean;
   clock_format:            string;  // "12" or "24"
+  reminder_minutes:        number[]; // lead times, e.g. [5, 15, 30]
+  hour_sound:              SoundName;
+  reminder_sound:          SoundName;
+  /** false when the host has no audio player on PATH */
+  sound_playback:          boolean;
 }
 
 export type DisplayMode = 'IconOnly' | 'Short' | 'Full';
@@ -113,6 +118,41 @@ export const getNotificationsEnabled = ()                    => invoke<boolean>(
 export const setNotificationsEnabled = (enabled: boolean)   => invoke<void>('set_notifications_enabled', { enabled });
 export const getClockFormat          = ()                    => invoke<string>('get_clock_format');
 export const setClockFormat          = (format: string)      => invoke<void>('set_clock_format', { format });
+
+// ── Reminders & notification sounds ────────────────────────────────────────────
+
+/** The lead times the backend accepts, in minutes before the hour ends. */
+export const REMINDER_CHOICES = [5, 10, 15, 20, 30] as const;
+
+/**
+ * `system` hands playback to the notification daemon (freedesktop
+ * `sound-name` hint). Every other name is a chime AstroHour synthesizes
+ * itself, so it sounds the same on every desktop.
+ */
+export type SoundName = 'system' | 'chime' | 'bell' | 'harp' | 'bowl' | 'none';
+
+export interface SoundOption {
+  id: SoundName;
+  label: string;
+}
+
+export const SOUND_OPTIONS: SoundOption[] = [
+  { id: 'chime',  label: 'Chime' },
+  { id: 'bell',   label: 'Bell' },
+  { id: 'harp',   label: 'Harp' },
+  { id: 'bowl',   label: 'Singing bowl' },
+  { id: 'system', label: 'System default' },
+  { id: 'none',   label: 'Silent' },
+];
+
+export const getReminderMinutes = ()                  => invoke<number[]>('get_reminder_minutes');
+export const setReminderMinutes = (minutes: number[]) => invoke<void>('set_reminder_minutes', { minutes });
+export const getHourSound       = ()                  => invoke<SoundName>('get_hour_sound');
+export const setHourSound       = (sound: SoundName)  => invoke<void>('set_hour_sound', { sound });
+export const getReminderSound   = ()                  => invoke<SoundName>('get_reminder_sound');
+export const setReminderSound   = (sound: SoundName)  => invoke<void>('set_reminder_sound', { sound });
+/** Play a sound once so the user can hear what they picked. */
+export const previewSound       = (sound: SoundName)  => invoke<void>('preview_sound', { sound });
 
 // ── Phase 2: Notes + License types ─────────────────────────────────────────────
 

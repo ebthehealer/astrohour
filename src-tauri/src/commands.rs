@@ -11,14 +11,32 @@ use astrohour_core::{
     display::status_bar_text,
     day_schedule,
 };
-use chrono::{NaiveDate, Utc, FixedOffset};
+use chrono::{DateTime, NaiveDate, Utc, FixedOffset, Local};
+
+/// "Now" in the user's local timezone.
+///
+/// Prefers the UTC offset the frontend reported, because that is the same
+/// value the UI uses to lay out the day — keeping the tray, the notifications
+/// and the window in agreement. Falls back to the system timezone before the
+/// frontend has had a chance to report one (e.g. during tray setup).
+pub(crate) fn local_now(utc_offset_mins: Option<i32>) -> DateTime<FixedOffset> {
+    match utc_offset_mins {
+        Some(mins) => {
+            let tz = FixedOffset::east_opt(mins * 60)
+                .unwrap_or_else(|| FixedOffset::east_opt(0).unwrap());
+            Utc::now().with_timezone(&tz)
+        }
+        None => Local::now().fixed_offset(),
+    }
+}
 
 /// Returns (current_hour, astrological_date) using the user's UTC offset.
 /// Mirrors the Go apothecary logic: if before today's sunrise, use yesterday.
-fn current_hour_and_date(loc: Location, utc_offset_mins: Option<i32>) -> (PlanetaryHour, NaiveDate) {
-    let offset_secs = utc_offset_mins.unwrap_or(0) * 60;
-    let tz = FixedOffset::east_opt(offset_secs).unwrap_or(FixedOffset::east_opt(0).unwrap());
-    let now_fixed = Utc::now().with_timezone(&tz);
+pub(crate) fn current_hour_and_date(
+    loc: Location,
+    utc_offset_mins: Option<i32>,
+) -> (PlanetaryHour, NaiveDate) {
+    let now_fixed = local_now(utc_offset_mins);
     let today = now_fixed.date_naive();
 
     // Try today's hours first
@@ -55,6 +73,17 @@ pub struct AppState {
     pub notifications_enabled: bool,
     /// "12" or "24"
     pub clock_format: String,
+    /// Minutes-before-the-end-of-an-hour at which to fire a reminder.
+    /// Empty means reminders are off. Values are drawn from `REMINDER_CHOICES`.
+    pub reminder_minutes: Vec<u32>,
+    /// Sound played with an hour-change notification. See `sound::SOUND_NAMES`.
+    pub hour_sound: String,
+    /// Sound played with a reminder notification. See `sound::SOUND_NAMES`.
+    pub reminder_sound: String,
+    /// UTC offset in minutes supplied by the frontend, so background threads
+    /// can derive the astrological date the same way the UI does. `None` until
+    /// the frontend has called `get_current_hour` at least once.
+    pub utc_offset_mins: Option<i32>,
 }
 
 impl Default for AppState {
@@ -66,9 +95,17 @@ impl Default for AppState {
             tray_icon_color: "auto".to_string(),
             notifications_enabled: true,
             clock_format: "12".to_string(),
+            // Opt-in: never start firing reminders the user didn't ask for.
+            reminder_minutes: Vec::new(),
+            hour_sound: "chime".to_string(),
+            reminder_sound: "chime".to_string(),
+            utc_offset_mins: None,
         }
     }
 }
+
+/// The reminder lead times the UI offers, in minutes.
+pub const REMINDER_CHOICES: &[u32] = &[5, 10, 15, 20, 30];
 
 pub type SharedState = Mutex<AppState>;
 
@@ -115,6 +152,21 @@ pub fn init_prefs(
     if let Some(v) = store.get("clock_format").and_then(|v| v.as_str().map(String::from)) {
         s.clock_format = v;
     }
+    if let Some(arr) = store.get("reminder_minutes").and_then(|v| v.as_array().cloned()) {
+        s.reminder_minutes = sanitize_reminders(
+            arr.iter().filter_map(|v| v.as_u64().map(|n| n as u32)).collect(),
+        );
+    }
+    if let Some(v) = store.get("hour_sound").and_then(|v| v.as_str().map(String::from)) {
+        if crate::sound::is_valid_sound(&v) {
+            s.hour_sound = v;
+        }
+    }
+    if let Some(v) = store.get("reminder_sound").and_then(|v| v.as_str().map(String::from)) {
+        if crate::sound::is_valid_sound(&v) {
+            s.reminder_sound = v;
+        }
+    }
 
     // Generate device secret if not already present.
     // Used as the stronghold vault password — stable per-install, invisible to user.
@@ -141,7 +193,25 @@ pub fn init_prefs(
         tray_icon_color:       s.tray_icon_color.clone(),
         notifications_enabled: s.notifications_enabled,
         clock_format:          s.clock_format.clone(),
+        reminder_minutes:      s.reminder_minutes.clone(),
+        hour_sound:            s.hour_sound.clone(),
+        reminder_sound:        s.reminder_sound.clone(),
+        sound_playback:        crate::sound::available(),
     })
+}
+
+/// Keep only the lead times we actually offer, deduplicated and ordered.
+///
+/// Values arriving from the store or IPC are untrusted — an out-of-range entry
+/// would otherwise fire a reminder at a nonsensical time.
+fn sanitize_reminders(values: Vec<u32>) -> Vec<u32> {
+    let mut out: Vec<u32> = REMINDER_CHOICES
+        .iter()
+        .copied()
+        .filter(|c| values.contains(c))
+        .collect();
+    out.dedup();
+    out
 }
 
 /// Generate a 64-char hex device secret from timestamp + PID mixed via SHA-256.
@@ -163,6 +233,12 @@ pub struct InitPrefsResult {
     pub tray_icon_color:         String,
     pub notifications_enabled:   bool,
     pub clock_format:            String,
+    pub reminder_minutes:        Vec<u32>,
+    pub hour_sound:              String,
+    pub reminder_sound:          String,
+    /// false when the host has no audio player on PATH; the UI greys out the
+    /// sound pickers in that case.
+    pub sound_playback:          bool,
 }
 
 /// Persist current prefs to store.
@@ -186,6 +262,17 @@ pub fn save_prefs(
     store.set("tray_icon_color", s.tray_icon_color.clone());
     store.set("notifications_enabled", s.notifications_enabled);
     store.set("clock_format", s.clock_format.clone());
+    store.set(
+        "reminder_minutes",
+        serde_json::Value::Array(
+            s.reminder_minutes
+                .iter()
+                .map(|m| serde_json::Value::from(*m))
+                .collect(),
+        ),
+    );
+    store.set("hour_sound", s.hour_sound.clone());
+    store.set("reminder_sound", s.reminder_sound.clone());
     store.save().map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -224,6 +311,72 @@ pub fn set_clock_format(state: State<'_, SharedState>, format: String) -> Result
 #[tauri::command]
 pub fn get_clock_format(state: State<'_, SharedState>) -> String {
     state.lock().unwrap().clock_format.clone()
+}
+
+// ── Reminders & sounds ─────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn get_reminder_minutes(state: State<'_, SharedState>) -> Vec<u32> {
+    state.lock().unwrap().reminder_minutes.clone()
+}
+
+#[tauri::command]
+pub fn set_reminder_minutes(
+    state: State<'_, SharedState>,
+    minutes: Vec<u32>,
+) -> Result<(), String> {
+    if let Some(bad) = minutes.iter().find(|m| !REMINDER_CHOICES.contains(m)) {
+        return Err(format!(
+            "unsupported reminder lead time {bad}: expected one of {REMINDER_CHOICES:?}"
+        ));
+    }
+    state.lock().unwrap().reminder_minutes = sanitize_reminders(minutes);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_hour_sound(state: State<'_, SharedState>) -> String {
+    state.lock().unwrap().hour_sound.clone()
+}
+
+#[tauri::command]
+pub fn set_hour_sound(state: State<'_, SharedState>, sound: String) -> Result<(), String> {
+    if !crate::sound::is_valid_sound(&sound) {
+        return Err(format!("unknown sound {sound:?}"));
+    }
+    state.lock().unwrap().hour_sound = sound;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_reminder_sound(state: State<'_, SharedState>) -> String {
+    state.lock().unwrap().reminder_sound.clone()
+}
+
+#[tauri::command]
+pub fn set_reminder_sound(state: State<'_, SharedState>, sound: String) -> Result<(), String> {
+    if !crate::sound::is_valid_sound(&sound) {
+        return Err(format!("unknown sound {sound:?}"));
+    }
+    state.lock().unwrap().reminder_sound = sound;
+    Ok(())
+}
+
+/// Preview a sound from the settings UI.
+#[tauri::command]
+pub fn preview_sound(sound: String) -> Result<(), String> {
+    if !crate::sound::is_valid_sound(&sound) {
+        return Err(format!("unknown sound {sound:?}"));
+    }
+    if sound != "none" && sound != "system" && !crate::sound::available() {
+        return Err(
+            "No audio player found on this system (looked for pw-play, paplay, \
+             canberra-gtk-play, aplay, ffplay)."
+                .to_string(),
+        );
+    }
+    crate::sound::play(&sound);
+    Ok(())
 }
 
 // ── Location ──────────────────────────────────────────────────────────────────
@@ -280,7 +433,13 @@ pub fn get_current_hour(
     state: State<SharedState>,
     utc_offset_mins: Option<i32>,
 ) -> PlanetaryHour {
-    let loc = state.lock().unwrap().location;
+    let loc = {
+        let mut s = state.lock().unwrap();
+        // Remember the offset so the background timer can derive the same
+        // astrological date the UI is showing.
+        s.utc_offset_mins = utc_offset_mins;
+        s.location
+    };
     current_hour_local(loc, utc_offset_mins)
 }
 
