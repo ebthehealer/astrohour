@@ -62,6 +62,9 @@
   let unlisten: (() => void) | null = null;
   let unlistenFocus: (() => void) | null = null;
   let tickInterval: ReturnType<typeof setInterval> | null = null;
+  // Wall-clock heartbeat. Anything that needs "what day is it" must read this
+  // rather than calling new Date() inside a reactive statement.
+  let dayTick = Date.now();
   let hoursListEl: HTMLElement | null = null;
 
   // ── Lifecycle
@@ -174,6 +177,7 @@
 
   function updateMins() {
     if (currentHour) minsRemaining = Math.round(minutesUntil(currentHour.end));
+    dayTick = Date.now();
   }
 
   // ── First-run done
@@ -202,12 +206,14 @@
   // ── Derived display values
   // dayName and dayRuler always reflect the civil calendar (wall-clock) day.
   // The schedule.date may be yesterday (before sunrise) but the user sees today's name.
-  const calendarRulers = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const calendarRulerNames = ['Sun','Moon','Mars','Mercury','Jupiter','Venus','Saturn'];
-  $: dayName = new Date().toLocaleDateString([], { weekday: 'long' });
+  // Both read dayTick, not the clock: a reactive statement with no dependencies
+  // is evaluated once at mount and never again, which left the weekday frozen
+  // at whatever day the app happened to be launched on.
+  $: dayName = new Date(dayTick).toLocaleDateString([], { weekday: 'long' });
   $: dayRuler = (() => {
     if (travelDate) return schedule?.planetary_day ?? '';
-    return calendarRulerNames[new Date().getDay()];
+    return calendarRulerNames[new Date(dayTick).getDay()];
   })();
   $: sunrise  = schedule ? formatTime(schedule.sunrise) : '--:--';
   $: sunset   = schedule ? formatTime(schedule.sunset)  : '--:--';
