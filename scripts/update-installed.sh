@@ -9,6 +9,20 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
+# Version of an installed package, or "none".
+#
+# Two traps here. rpm writes "package X is not installed" to *stdout*, so the
+# result cannot simply be captured and filtered. And `--quiet` is not the fix
+# either: it suppresses the queryformat output as well as the message, so an
+# installed package yields an empty string.
+installed_version() {
+  if rpm -q "$1" >/dev/null 2>&1; then
+    rpm -q --qf '%{VERSION}-%{RELEASE}' "$1"
+  else
+    echo none
+  fi
+}
+
 echo "==> Building release packages (this takes a few minutes)…"
 cargo tauri build --bundles rpm
 
@@ -22,10 +36,8 @@ echo "==> Installing $RPM"
 #   fresh install or upgrade -> dnf install (resolves dependencies, upgrades)
 #   same version already there -> rpm -U, because dnf calls that "nothing to do"
 #     and would leave the old files in place after a rebuild without a bump.
-# --quiet matters: without it rpm writes "package astro-hour is not installed"
-# to *stdout*, which would land in $HAVE alongside the fallback.
 WANTED=$(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$RPM")
-HAVE=$(rpm -q --quiet --qf '%{VERSION}-%{RELEASE}' astro-hour 2>/dev/null || echo none)
+HAVE=$(installed_version astro-hour)
 
 if [ "$HAVE" = "$WANTED" ]; then
   echo "==> Already at $WANTED; replacing files"
@@ -41,7 +53,7 @@ fi
 
 # Confirm the install actually took. Without this the script reports success
 # after a dnf invocation that quietly decided there was nothing to do.
-AFTER=$(rpm -q --quiet --qf '%{VERSION}-%{RELEASE}' astro-hour 2>/dev/null || echo none)
+AFTER=$(installed_version astro-hour)
 if [ "$AFTER" != "$WANTED" ]; then
   echo
   echo "!! Install did not take: wanted $WANTED, have $AFTER" >&2
