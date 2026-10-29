@@ -2,6 +2,7 @@
 
 mod commands;
 mod db;
+mod donation;
 mod license;
 mod sound;
 mod tray;
