@@ -23,6 +23,30 @@ installed_version() {
   fi
 }
 
+# The package version does not change between rebuilds -- 0.3.0-1 is what every
+# build produces until someone bumps the version -- so it cannot tell you
+# whether the code you are about to install is the code you just pulled. Report
+# the commit instead, and say so when the checkout is behind the remote. That
+# way "it still looks the same" is a question with an answer.
+COMMIT=$(git rev-parse --short HEAD)
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+echo "==> Building $COMMIT on $BRANCH"
+
+if git rev-parse --abbrev-ref "@{upstream}" >/dev/null 2>&1; then
+  if ! git fetch --quiet 2>/dev/null; then
+    echo "    (could not reach the remote; building what is here)"
+  elif [ -n "$(git log HEAD..@{upstream} --oneline 2>/dev/null)" ]; then
+    echo
+    echo "!! This checkout is BEHIND its remote. You are about to install"
+    echo "   $COMMIT, not the latest code. Run 'git pull' first if that is"
+    echo "   not what you want:"
+    git log HEAD..@{upstream} --oneline | sed 's/^/     /'
+    echo
+  else
+    echo "    up to date with $BRANCH"
+  fi
+fi
+
 echo "==> Building release packages (this takes a few minutes)…"
 cargo tauri build --bundles rpm
 
@@ -63,7 +87,7 @@ if [ "$AFTER" != "$WANTED" ]; then
 fi
 
 echo
-echo "==> Installed: astro-hour-$AFTER"
+echo "==> Installed: astro-hour-$AFTER (built from $COMMIT)"
 echo "    Now quit any running AstroHour (tray icon → Quit) and"
 echo "    relaunch it from the application menu. A process already running"
 echo "    keeps executing the old binary until it is restarted."
