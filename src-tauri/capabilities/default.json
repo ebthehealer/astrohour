@@ -30,12 +30,6 @@
     "sql:allow-execute",
     "sql:allow-select",
     "sql:allow-close",
-    "stronghold:allow-initialize",
-    "stronghold:allow-load-client",
-    "stronghold:allow-create-client",
-    "stronghold:allow-get-store-record",
-    "stronghold:allow-execute-procedure",
-    "stronghold:allow-destroy",
     "core:window:allow-hide",
     "core:window:allow-start-dragging",
     "notification:allow-show"

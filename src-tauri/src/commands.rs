@@ -58,7 +58,6 @@ fn current_hour_local(loc: Location, utc_offset_mins: Option<i32>) -> PlanetaryH
 }
 use tauri::State;
 use std::sync::Mutex;
-use crate::license::sha256_hex;
 
 // ── App state ──────────────────────────────────────────────────────────────────
 
@@ -168,18 +167,6 @@ pub fn init_prefs(
         }
     }
 
-    // Generate device secret if not already present.
-    // Used as the stronghold vault password — stable per-install, invisible to user.
-    if store.get("device_secret").is_none() {
-        let secret = generate_device_secret();
-        store.set("device_secret", serde_json::Value::String(secret));
-        store.save().map_err(|e| e.to_string())?;
-    }
-    let device_secret = store
-        .get("device_secret")
-        .and_then(|v| v.as_str().map(String::from))
-        .unwrap_or_else(generate_device_secret);
-
     Ok(InitPrefsResult {
         location_set: s.location_set,
         lat: s.location.lat,
@@ -189,7 +176,6 @@ pub fn init_prefs(
             DisplayMode::Short    => "Short".into(),
             DisplayMode::Full     => "Full".into(),
         },
-        device_secret,
         tray_icon_color:       s.tray_icon_color.clone(),
         notifications_enabled: s.notifications_enabled,
         clock_format:          s.clock_format.clone(),
@@ -214,22 +200,12 @@ fn sanitize_reminders(values: Vec<u32>) -> Vec<u32> {
     out
 }
 
-/// Generate a 64-char hex device secret from timestamp + PID mixed via SHA-256.
-/// Not a cryptographic secret — just needs to be stable and unique per install.
-fn generate_device_secret() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let ts  = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos();
-    let pid = std::process::id();
-    sha256_hex(format!("astrohour-device-{ts}-{pid}").as_bytes())
-}
-
 #[derive(serde::Serialize)]
 pub struct InitPrefsResult {
     pub location_set:            bool,
     pub lat:                     f64,
     pub lon:                     f64,
     pub display_mode:            String,
-    pub device_secret:           String,
     pub tray_icon_color:         String,
     pub notifications_enabled:   bool,
     pub clock_format:            String,
@@ -583,75 +559,4 @@ pub fn make_planet_key(date: String, hour_index: usize) -> Result<String, String
 #[tauri::command]
 pub fn today_string() -> String {
     chrono::Local::now().format("%Y-%m-%d").to_string()
-}
-
-// ── Phase 2: License commands ───────────────────────────────────────────────────────
-
-use crate::license::{validate_key, LicenseStatus, SharedLicense};
-
-/// Return the current license status for the frontend.
-/// Called on startup and after key entry.
-///
-/// On Linux all features are free — always returns Active with a
-/// special "linux-free" key hash so the frontend knows to show
-/// a donation prompt instead of a license UI.
-#[tauri::command]
-pub fn get_license_status(_license: State<SharedLicense>) -> LicenseStatus {
-    #[cfg(target_os = "linux")]
-    {
-        return LicenseStatus::Active {
-            key_hash:     "linux-free".into(),
-            activated_at: "linux-free".into(),
-        };
-    }
-    #[cfg(not(target_os = "linux"))]
-    license.lock().unwrap().clone()
-}
-
-/// Validate and activate a license key.
-///
-/// On success:
-///   - Updates SharedLicense state to Active
-///   - The frontend is responsible for persisting the raw key via
-///     `@tauri-apps/plugin-stronghold` (JS side) and writing the hash
-///     to SQLite.
-///
-/// Returns `Ok(key_hash)` on success, `Err(message)` on failure.
-#[tauri::command]
-pub fn activate_license(
-    license: State<SharedLicense>,
-    raw_key: String,
-) -> Result<String, String> {
-    let key_hash = validate_key(&raw_key).map_err(|e| e.to_string())?;
-    let activated_at = Utc::now().to_rfc3339();
-    *license.lock().unwrap() = LicenseStatus::Active {
-        key_hash: key_hash.clone(),
-        activated_at,
-    };
-    Ok(key_hash)
-}
-
-/// Deactivate the current license (for testing / support).
-#[tauri::command]
-pub fn deactivate_license(license: State<SharedLicense>) {
-    *license.lock().unwrap() = LicenseStatus::None;
-}
-
-/// Load license status from SQLite + stronghold on startup.
-/// Called by the frontend after DB is ready. Accepts the stored key_hash
-/// and activated_at from the DB row; the raw key is held in stronghold
-/// on the JS side.
-#[tauri::command]
-pub fn restore_license(
-    license: State<SharedLicense>,
-    key_hash: Option<String>,
-    activated_at: Option<String>,
-) {
-    let status = match (key_hash, activated_at) {
-        (Some(hash), Some(at)) if !hash.is_empty() => {
-            LicenseStatus::Active { key_hash: hash, activated_at: at }
-        }
-        _ => LicenseStatus::None,
-    };
-    *license.lock().unwrap() = status;
 }
