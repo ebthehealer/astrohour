@@ -1,41 +1,77 @@
 //! Donation reminders.
 //!
 //! AstroHour is free on every platform; donations are what keep it going.
-//! Seven times a year the app puts up a card inviting the user to donate.
+//! Six times a year the app puts up a card inviting the user to donate.
 //!
-//! The whole decision is a pure function of the clock — `due_donation(now,
-//! state)` — so it can be tested without waiting for September.
+//! The decision is a pure function of the clock — `due_donation(now, state,
+//! loc)` — so it can be tested without waiting for September.
 //!
-//! ## Timezone
+//! ## When a reminder fires
 //!
-//! The dates and times are specified in **US Eastern**, not the user's local
-//! time. The dates were chosen deliberately, so the moment is anchored to one
-//! reference zone rather than drifting per user. The consequence is worth
-//! knowing: someone in Tokyo is shown the card at around 10pm local, and
-//! someone in Sydney around midnight. If that becomes a problem, the fix is to
-//! compare against the user's local clock instead of `New_York` below — the
-//! rest of the module does not care which zone it is given.
+//! Most dates fire at the start of the **first Jupiter-ruled day hour**. That
+//! is defined by sunrise at the user's location, so everyone gets the card in
+//! their own morning rather than at one fixed instant worldwide. It also means
+//! the clock time drifts year to year: the dates land on different weekdays,
+//! and Jupiter is the first hour on Thursday — its own day — but the fifth on
+//! Friday.
+//!
+//! A date can instead pin a fixed US Eastern time, which is how 2 September
+//! 2027 is set.
+//!
+//! ## The schedule is per year
+//!
+//! Times are chosen year by year rather than by one recurring rule, so
+//! `schedule_for(year)` is a lookup. Years with no entry yet fall back to
+//! `DEFAULT_SCHEDULE`; add a new arm when the times for a year are decided.
 
-use chrono::{DateTime, Datelike, Months, NaiveDate, Timelike, Utc};
+use astrohour_core::types::Planet;
+use astrohour_core::{planetary_hours, Location};
+use chrono::{DateTime, Datelike, Local, Months, NaiveDate, TimeZone, Utc};
 use chrono_tz::America::New_York;
 
-/// The seven days a year the card appears, and the Eastern time it becomes due.
-///
-/// Calendar order, which is not the order they were chosen in. Gaps between
-/// consecutive dates are 34, 48, 86, 33, 39, 45 and 80 days.
-pub const DONATION_DATES: &[((u32, u32), (u32, u32))] = &[
-    ((2, 13), (9, 0)),
-    ((3, 19), (10, 0)),
-    ((5, 6), (6, 0)),
-    ((7, 31), (10, 0)),
-    ((9, 2), (8, 0)),
-    ((10, 11), (10, 0)),
-    ((11, 25), (10, 0)),
+/// How a reminder's moment is determined.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum When {
+    /// Start of the first Jupiter-ruled day hour. Depends on sunrise at the
+    /// user's location, so the clock time varies by where they are.
+    FirstJupiterHour,
+    /// A fixed wall-clock time, in US Eastern.
+    Eastern(u32, u32),
+}
+
+/// 2027, as chosen by hand.
+const SCHEDULE_2027: &[((u32, u32), When)] = &[
+    ((2, 13), When::FirstJupiterHour),
+    ((3, 19), When::FirstJupiterHour),
+    ((5, 6), When::FirstJupiterHour),
+    ((7, 31), When::FirstJupiterHour),
+    ((9, 2), When::Eastern(8, 0)),
+    ((10, 11), When::FirstJupiterHour),
 ];
 
+/// Years with no schedule of their own fall back to this. The same six dates,
+/// all on the Jupiter hour — a reasonable default, but it is a placeholder
+/// rather than a decision.
+const DEFAULT_SCHEDULE: &[((u32, u32), When)] = &[
+    ((2, 13), When::FirstJupiterHour),
+    ((3, 19), When::FirstJupiterHour),
+    ((5, 6), When::FirstJupiterHour),
+    ((7, 31), When::FirstJupiterHour),
+    ((9, 2), When::FirstJupiterHour),
+    ((10, 11), When::FirstJupiterHour),
+];
+
+/// The dates and times in force for a given year.
+pub fn schedule_for(year: i32) -> &'static [((u32, u32), When)] {
+    match year {
+        2027 => SCHEDULE_2027,
+        _ => DEFAULT_SCHEDULE,
+    }
+}
+
 /// A missed reminder is dropped if the next one is closer than this. Asking
-/// about a date that has already been overtaken by the next feels like a debt
-/// rather than an invitation.
+/// about a date already overtaken by the next feels like a debt rather than an
+/// invitation.
 pub const CATCH_UP_WINDOW_DAYS: i64 = 30;
 
 /// How long the app stays quiet after the user donates.
@@ -45,12 +81,12 @@ pub const QUIET_AFTER_DONATION_MONTHS: u32 = 12;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Occurrence {
     pub date: NaiveDate,
-    /// Eastern time of day it becomes due.
-    pub time: (u32, u32),
+    /// The instant it becomes due.
+    pub due: DateTime<Utc>,
 }
 
 impl Occurrence {
-    /// Stable identifier for this occurrence, e.g. "2026-09-02". Stored so we
+    /// Stable identifier for this occurrence, e.g. "2027-09-02". Stored so we
     /// can remember we already asked this year.
     pub fn key(&self) -> String {
         format!(
@@ -73,11 +109,31 @@ pub struct DonationState {
     pub last_donated: Option<DateTime<Utc>>,
 }
 
-fn occurrences_in(year: i32) -> Vec<Occurrence> {
-    let mut v: Vec<Occurrence> = DONATION_DATES
+/// The instant a given date's reminder becomes due, or `None` if it cannot be
+/// determined (an ambiguous Eastern wall time, or a date with no Jupiter hour,
+/// neither of which occurs in practice).
+fn due_at(date: NaiveDate, when: When, loc: Location) -> Option<DateTime<Utc>> {
+    match when {
+        When::FirstJupiterHour => planetary_hours(date, loc)
+            .into_iter()
+            .find(|h| h.is_day && h.planet == Planet::Jupiter)
+            .map(|h| h.start.with_timezone(&Utc)),
+        When::Eastern(hh, mm) => New_York
+            .with_ymd_and_hms(date.year(), date.month(), date.day(), hh, mm, 0)
+            .single()
+            .map(|t| t.with_timezone(&Utc)),
+    }
+}
+
+fn occurrences_in(year: i32, loc: Location) -> Vec<Occurrence> {
+    let mut v: Vec<Occurrence> = schedule_for(year)
         .iter()
-        .filter_map(|((m, d), t)| {
-            NaiveDate::from_ymd_opt(year, *m, *d).map(|date| Occurrence { date, time: *t })
+        .filter_map(|((m, d), when)| {
+            let date = NaiveDate::from_ymd_opt(year, *m, *d)?;
+            Some(Occurrence {
+                date,
+                due: due_at(date, *when, loc)?,
+            })
         })
         .collect();
     v.sort_by_key(|o| o.date);
@@ -86,10 +142,10 @@ fn occurrences_in(year: i32) -> Vec<Occurrence> {
 
 /// Every reminder in the neighbourhood of `today`. Three years is enough to
 /// always contain a predecessor and a successor.
-fn occurrences_near(today: NaiveDate) -> Vec<Occurrence> {
+fn occurrences_near(today: NaiveDate, loc: Location) -> Vec<Occurrence> {
     let mut v = Vec::new();
     for y in [today.year() - 1, today.year(), today.year() + 1] {
-        v.extend(occurrences_in(y));
+        v.extend(occurrences_in(y, loc));
     }
     v.sort_by_key(|o| o.date);
     v
@@ -109,17 +165,20 @@ fn quiet_after_donation(now: DateTime<Utc>, last: Option<DateTime<Utc>>) -> bool
 ///
 /// Two ways a reminder comes due:
 ///
-/// 1. **Today.** It is a donation date and its time has passed. Because the
-///    test is `now >= time` rather than `now == time`, someone who opens the
-///    app at 6pm on a donation date still sees it.
+/// 1. **Today.** It is a reminder date and its moment has passed. Because the
+///    test is `now >= due` rather than `now == due`, someone who opens the app
+///    hours later still sees it.
 /// 2. **Catch-up.** The most recent date went by without the app being open.
 ///    Shown on the next launch, unless the next date is already close enough
 ///    that asking now would be noise.
 ///
-/// Either way, an occurrence is offered at most once — `last_shown` records
-/// the key. Nothing is ever shown twice, and nothing is shown for a date more
-/// than one cycle old.
-pub fn due_donation(now: DateTime<Utc>, state: &DonationState) -> Option<Occurrence> {
+/// Either way an occurrence is offered at most once — `last_shown` records the
+/// key. Nothing is shown twice, and nothing for a date more than one cycle old.
+pub fn due_donation(
+    now: DateTime<Utc>,
+    state: &DonationState,
+    loc: Location,
+) -> Option<Occurrence> {
     if state.opted_out {
         return None;
     }
@@ -127,14 +186,12 @@ pub fn due_donation(now: DateTime<Utc>, state: &DonationState) -> Option<Occurre
         return None;
     }
 
-    let local = now.with_timezone(&New_York);
-    let today = local.date_naive();
-    let occs = occurrences_near(today);
+    let today = now.with_timezone(&Local).date_naive();
+    let occs = occurrences_near(today, loc);
 
-    // 1. Today's reminder, once its time has arrived.
+    // 1. Today's reminder, once its moment has arrived.
     if let Some(o) = occs.iter().find(|o| o.date == today) {
-        let now_hm = (local.hour(), local.minute());
-        if now_hm >= o.time && state.last_shown.as_deref() != Some(o.key().as_str()) {
+        if now >= o.due && state.last_shown.as_deref() != Some(o.key().as_str()) {
             return Some(o.clone());
         }
     }
@@ -145,7 +202,8 @@ pub fn due_donation(now: DateTime<Utc>, state: &DonationState) -> Option<Occurre
 
     if let (Some(prev), Some(next)) = (prev, next) {
         let until_next = (next.date - today).num_days();
-        if until_next >= CATCH_UP_WINDOW_DAYS && state.last_shown.as_deref() != Some(prev.key().as_str()) {
+        if until_next >= CATCH_UP_WINDOW_DAYS && state.last_shown.as_deref() != Some(prev.key().as_str())
+        {
             return Some(prev.clone());
         }
     }
@@ -206,14 +264,32 @@ fn persist(app: &tauri::AppHandle, state: &DonationState) -> Result<(), String> 
     store.save().map_err(|e| e.to_string())
 }
 
+/// The user's configured location, or `None` if they have not set one.
+///
+/// Jupiter hours are derived from sunrise, so without a location there is
+/// nothing to compute and reminders are skipped rather than guessed at.
+fn location_of(app: &tauri::AppHandle) -> Option<Location> {
+    use tauri::Manager;
+    let state = app.state::<crate::commands::SharedState>();
+    let s = state.lock().unwrap();
+    if s.location_set {
+        Some(s.location)
+    } else {
+        None
+    }
+}
+
 /// Check the clock and, if a card is due, put it up.
 ///
 /// The occurrence is recorded as shown *before* the event is emitted. If the
 /// app dies with the card on screen we would rather lose one reminder than
 /// re-nag on every restart.
 pub fn check_due(app: &tauri::AppHandle) {
+    let Some(loc) = location_of(app) else {
+        return;
+    };
     let state = load(app);
-    if let Some(o) = due_donation(Utc::now(), &state) {
+    if let Some(o) = due_donation(Utc::now(), &state, loc) {
         let mut next = state.clone();
         next.last_shown = Some(o.key());
         let _ = persist(app, &next);
@@ -255,8 +331,9 @@ pub fn next_donation_date(app: tauri::AppHandle) -> Option<String> {
     if state.opted_out {
         return None;
     }
-    let today = Utc::now().with_timezone(&New_York).date_naive();
-    occurrences_near(today)
+    let loc = location_of(&app)?;
+    let today = Utc::now().with_timezone(&Local).date_naive();
+    occurrences_near(today, loc)
         .into_iter()
         .find(|o| o.date >= today)
         .map(|o| o.key())
@@ -265,12 +342,33 @@ pub fn next_donation_date(app: tauri::AppHandle) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone;
+    use chrono::{Duration, TimeZone};
 
-    /// An instant expressed as Eastern wall-clock — how the schedule is written.
+    /// The owner's location. Bedford, Massachusetts — chosen so the due
+    /// instants land in the middle of the UTC day, which keeps these tests
+    /// independent of the timezone the test runner happens to be in.
+    const LOC: Location = Location {
+        lat: 42.4604,
+        lon: -71.3490,
+    };
+
+    fn date(y: i32, m: u32, d: u32) -> NaiveDate {
+        NaiveDate::from_ymd_opt(y, m, d).unwrap()
+    }
+
+    /// The moment a Jupiter-hour reminder fires on this date.
+    fn jupiter_start(d: NaiveDate) -> DateTime<Utc> {
+        planetary_hours(d, LOC)
+            .into_iter()
+            .find(|h| h.is_day && h.planet == Planet::Jupiter)
+            .map(|h| h.start.with_timezone(&Utc))
+            .expect("every day has a Jupiter day hour")
+    }
+
     fn eastern(y: i32, m: u32, d: u32, hh: u32, mm: u32) -> DateTime<Utc> {
         New_York
             .with_ymd_and_hms(y, m, d, hh, mm, 0)
+            .single()
             .unwrap()
             .with_timezone(&Utc)
     }
@@ -279,82 +377,122 @@ mod tests {
         DonationState::default()
     }
 
-    fn key_of(now: DateTime<Utc>) -> Option<String> {
-        due_donation(now, &none()).map(|o| o.key())
+    fn key_at(now: DateTime<Utc>) -> Option<String> {
+        due_donation(now, &none(), LOC).map(|o| o.key())
+    }
+
+    // ── The schedule ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn the_2027_schedule_is_the_six_agreed_dates() {
+        let dates: Vec<(u32, u32)> = SCHEDULE_2027.iter().map(|((m, d), _)| (*m, *d)).collect();
+        assert_eq!(dates, vec![(2, 13), (3, 19), (5, 6), (7, 31), (9, 2), (10, 11)]);
     }
 
     #[test]
-    fn the_schedule_is_the_seven_agreed_dates() {
-        let got: Vec<((u32, u32), (u32, u32))> = DONATION_DATES.to_vec();
-        assert_eq!(
-            got,
-            vec![
-                ((2, 13), (9, 0)),
-                ((3, 19), (10, 0)),
-                ((5, 6), (6, 0)),
-                ((7, 31), (10, 0)),
-                ((9, 2), (8, 0)),
-                ((10, 11), (10, 0)),
-                ((11, 25), (10, 0)),
-            ]
-        );
+    fn november_25_is_no_longer_scheduled() {
+        assert!(!schedule_for(2027).iter().any(|((m, d), _)| *m == 11 && *d == 25));
     }
 
     #[test]
-    fn not_due_before_the_configured_time() {
-        assert_eq!(key_of(eastern(2026, 9, 2, 7, 59)), None);
+    fn may_6_runs_on_the_jupiter_hour_like_the_rest() {
+        let when = schedule_for(2027)
+            .iter()
+            .find(|((m, d), _)| *m == 5 && *d == 6)
+            .map(|(_, w)| *w);
+        assert_eq!(when, Some(When::FirstJupiterHour));
     }
 
     #[test]
-    fn due_at_the_configured_time() {
-        assert_eq!(key_of(eastern(2026, 9, 2, 8, 0)), Some("2026-09-02".into()));
+    fn september_2_pins_8am_eastern() {
+        let when = schedule_for(2027)
+            .iter()
+            .find(|((m, d), _)| *m == 9 && *d == 2)
+            .map(|(_, w)| *w);
+        assert_eq!(when, Some(When::Eastern(8, 0)));
     }
 
     #[test]
-    fn due_later_the_same_day() {
-        assert_eq!(key_of(eastern(2026, 9, 2, 23, 30)), Some("2026-09-02".into()));
+    fn unspecified_years_fall_back_to_the_default() {
+        assert_eq!(schedule_for(2028), DEFAULT_SCHEDULE);
+        assert_eq!(schedule_for(1999), DEFAULT_SCHEDULE);
     }
 
     #[test]
-    fn the_day_after_a_missed_date_is_the_catch_up_case() {
-        // App closed all day 2 Sep; opened 3 Sep. 11 Oct is 38 days off, so
-        // the missed card is shown now.
-        assert_eq!(key_of(eastern(2026, 9, 3, 12, 0)), Some("2026-09-02".into()));
-    }
-
-    #[test]
-    fn nothing_is_due_once_the_window_has_closed() {
-        // 20 Sep: 2 Sep is past, but 11 Oct is only 21 days off.
-        assert_eq!(key_of(eastern(2026, 9, 20, 12, 0)), None);
-        // 5 Jul: 6 May is long gone and 31 Jul is 26 days off.
-        assert_eq!(key_of(eastern(2026, 7, 5, 12, 0)), None);
-    }
-
-    #[test]
-    fn every_date_has_a_plausible_time() {
-        for ((m, d), (hh, mm)) in DONATION_DATES {
-            assert!(*hh < 24 && *mm < 60, "{m}-{d} has an invalid time");
+    fn every_2027_date_resolves_to_a_moment() {
+        for ((m, d), when) in SCHEDULE_2027 {
+            assert!(
+                due_at(date(2027, *m, *d), *when, LOC).is_some(),
+                "{m}-{d} did not resolve"
+            );
         }
     }
+
+    // ── Firing ───────────────────────────────────────────────────────────────
+
+    #[test]
+    fn not_due_a_second_before_the_moment() {
+        let due = jupiter_start(date(2027, 7, 31));
+        assert_eq!(key_at(due - Duration::seconds(1)), None);
+    }
+
+    #[test]
+    fn due_on_the_moment() {
+        let due = jupiter_start(date(2027, 7, 31));
+        assert_eq!(key_at(due), Some("2027-07-31".into()));
+    }
+
+    #[test]
+    fn due_hours_later_the_same_day() {
+        let due = jupiter_start(date(2027, 7, 31));
+        assert_eq!(key_at(due + Duration::hours(6)), Some("2027-07-31".into()));
+    }
+
+    #[test]
+    fn may_6_fires_at_its_jupiter_hour_not_6am() {
+        // 2027: Jupiter's hour runs 05:34-06:45 Eastern, so 06:00 sits inside
+        // it and the card must open the hour rather than wait for 6am.
+        let due = jupiter_start(date(2027, 5, 6));
+        assert!(due < eastern(2027, 5, 6, 6, 0), "Jupiter hour should start before 6am");
+        assert_eq!(key_at(due - Duration::seconds(1)), None);
+        assert_eq!(key_at(due), Some("2027-05-06".into()));
+    }
+
+    #[test]
+    fn september_2_ignores_the_jupiter_hour() {
+        let pinned = eastern(2027, 9, 2, 8, 0);
+        let jupiter = jupiter_start(date(2027, 9, 2));
+        assert_ne!(pinned, jupiter, "the pinned time should not coincide");
+        assert_eq!(key_at(pinned - Duration::seconds(1)), None);
+        assert_eq!(key_at(pinned), Some("2027-09-02".into()));
+    }
+
+    #[test]
+    fn not_due_on_an_ordinary_day() {
+        // 20 Sep: 2 Sep is past but 11 Oct is only 21 days off.
+        assert_eq!(key_at(eastern(2027, 9, 20, 12, 0)), None);
+    }
+
+    // ── Repetition ───────────────────────────────────────────────────────────
 
     #[test]
     fn shown_only_once_per_occurrence() {
         let state = DonationState {
-            last_shown: Some("2026-09-02".into()),
+            last_shown: Some("2027-09-02".into()),
             ..Default::default()
         };
-        assert_eq!(due_donation(eastern(2026, 9, 2, 11, 0), &state), None);
+        assert_eq!(due_donation(eastern(2027, 9, 2, 9, 0), &state, LOC), None);
     }
 
     #[test]
     fn last_years_record_does_not_suppress_this_year() {
         let state = DonationState {
-            last_shown: Some("2026-09-02".into()),
+            last_shown: Some("2027-09-02".into()),
             ..Default::default()
         };
         assert_eq!(
-            due_donation(eastern(2027, 9, 2, 8, 0), &state).map(|o| o.key()),
-            Some("2027-09-02".into())
+            due_donation(eastern(2028, 9, 2, 12, 0), &state, LOC).map(|o| o.key()),
+            Some("2028-09-02".into())
         );
     }
 
@@ -364,125 +502,96 @@ mod tests {
             opted_out: true,
             ..Default::default()
         };
-        assert_eq!(due_donation(eastern(2026, 9, 2, 12, 0), &state), None);
-        assert_eq!(due_donation(eastern(2030, 11, 25, 12, 0), &state), None);
+        assert_eq!(due_donation(eastern(2027, 9, 2, 12, 0), &state, LOC), None);
+        assert_eq!(due_donation(eastern(2030, 2, 13, 12, 0), &state, LOC), None);
     }
+
+    // ── The quiet period after donating ──────────────────────────────────────
 
     #[test]
     fn donating_silences_for_a_year() {
         let state = DonationState {
-            last_donated: Some(eastern(2026, 9, 2, 8, 30)),
+            last_donated: Some(eastern(2027, 9, 2, 8, 30)),
             ..Default::default()
         };
-        // Oct 11 and Nov 25 of the same year are skipped.
-        assert_eq!(due_donation(eastern(2026, 10, 11, 10, 0), &state), None);
-        assert_eq!(due_donation(eastern(2026, 11, 25, 10, 0), &state), None);
-        assert_eq!(due_donation(eastern(2027, 2, 13, 9, 0), &state), None);
+        assert_eq!(due_donation(eastern(2027, 10, 11, 12, 0), &state, LOC), None);
+        assert_eq!(due_donation(eastern(2028, 2, 13, 12, 0), &state, LOC), None);
     }
 
     #[test]
     fn next_reminder_is_the_first_date_after_the_anniversary() {
-        // Donated on 2 Sep 2026 -> quiet until 2 Sep 2027, which is itself a
-        // donation date, so that is the next card.
+        // Donated 2 Sep 2027 -> quiet until 2 Sep 2028, which is itself a
+        // reminder date, so that is the next card.
         let state = DonationState {
-            last_donated: Some(eastern(2026, 9, 2, 8, 30)),
+            last_donated: Some(eastern(2027, 9, 2, 8, 30)),
             ..Default::default()
         };
-        assert_eq!(due_donation(eastern(2027, 9, 2, 7, 0), &state), None);
-        // The quiet period runs to the same time of day the donation was made
-        // (08:30), which is after that date's own 08:00 start, so the card
-        // waits half an hour rather than appearing with the schedule.
-        assert_eq!(due_donation(eastern(2027, 9, 2, 8, 0), &state), None);
+        let anniversary = eastern(2028, 9, 2, 8, 30);
+        assert_eq!(due_donation(anniversary - Duration::minutes(1), &state, LOC), None);
         assert_eq!(
-            due_donation(eastern(2027, 9, 2, 8, 30), &state).map(|o| o.key()),
-            Some("2027-09-02".into())
+            due_donation(anniversary, &state, LOC).map(|o| o.key()),
+            Some("2028-09-02".into())
         );
     }
 
     #[test]
     fn donating_off_schedule_waits_for_the_next_date() {
-        // Donated 5 Sep 2026 (not a donation date) -> quiet until 5 Sep 2027,
-        // so the next card is 11 Oct 2027.
+        // Donated 5 Sep 2027 (not a reminder date) -> quiet until 5 Sep 2028,
+        // so the next card is 11 Oct 2028.
         let state = DonationState {
-            last_donated: Some(eastern(2026, 9, 5, 12, 0)),
+            last_donated: Some(eastern(2027, 9, 5, 12, 0)),
             ..Default::default()
         };
-        assert_eq!(due_donation(eastern(2027, 9, 2, 8, 0), &state), None);
+        assert_eq!(due_donation(eastern(2028, 9, 2, 12, 0), &state, LOC), None);
         assert_eq!(
-            due_donation(eastern(2027, 10, 11, 10, 0), &state).map(|o| o.key()),
-            Some("2027-10-11".into())
+            due_donation(eastern(2028, 10, 11, 12, 0), &state, LOC).map(|o| o.key()),
+            Some("2028-10-11".into())
         );
     }
 
+    // ── Catch-up ─────────────────────────────────────────────────────────────
+
     #[test]
     fn missed_reminder_is_shown_on_the_next_launch() {
-        // App closed all day 31 Jul 2026; opened 1 Aug. Next date (2 Sep) is
+        // App closed all day 31 Jul 2027; opened 1 Aug. Next date (2 Sep) is
         // 32 days away, so the missed one is still worth showing.
-        assert_eq!(key_of(eastern(2026, 8, 1, 12, 0)), Some("2026-07-31".into()));
+        assert_eq!(key_at(eastern(2027, 8, 1, 12, 0)), Some("2027-07-31".into()));
     }
 
     #[test]
     fn missed_reminder_is_dropped_when_the_next_one_is_close() {
         // Opened 10 Aug; 2 Sep is only 23 days off, so skip the stale one.
-        assert_eq!(key_of(eastern(2026, 8, 10, 12, 0)), None);
+        assert_eq!(key_at(eastern(2027, 8, 10, 12, 0)), None);
     }
 
     #[test]
     fn catch_up_holds_right_up_to_the_window() {
-        // 31 Jul + 32 days = 1 Sep, exactly 1 day before the next date.
-        assert_eq!(key_of(eastern(2026, 9, 1, 12, 0)), None);
-        // 3 Aug leaves 30 days to 2 Sep: exactly at the window, so shown.
-        assert_eq!(key_of(eastern(2026, 8, 3, 12, 0)), Some("2026-07-31".into()));
+        // 3 Aug leaves exactly 30 days to 2 Sep, so it is still shown.
+        assert_eq!(key_at(eastern(2027, 8, 3, 12, 0)), Some("2027-07-31".into()));
+        // 1 Sep is one day short of the next date, so nothing is due.
+        assert_eq!(key_at(eastern(2027, 9, 1, 12, 0)), None);
     }
 
     #[test]
     fn a_short_gap_date_is_rarely_caught_up() {
-        // 13 Feb -> 19 Mar is only 34 days, so the catch-up window closes
-        // after four days.
-        assert_eq!(key_of(eastern(2026, 2, 15, 12, 0)), Some("2026-02-13".into()));
-        assert_eq!(key_of(eastern(2026, 2, 20, 12, 0)), None);
+        // 13 Feb -> 19 Mar is only 34 days, so the window closes after four.
+        assert_eq!(key_at(eastern(2027, 2, 15, 12, 0)), Some("2027-02-13".into()));
+        assert_eq!(key_at(eastern(2027, 2, 20, 12, 0)), None);
     }
 
     #[test]
-    fn no_catch_up_on_the_day_itself_before_its_time() {
-        // 2 Sep at 7am: today's card is not due yet, and the previous date is
-        // too stale to chase.
-        assert_eq!(key_of(eastern(2026, 9, 2, 7, 0)), None);
+    fn no_catch_up_on_the_day_itself_before_its_moment() {
+        // 2 Sep at 07:00 Eastern: today's 08:00 card is not due yet, and the
+        // previous date is too stale to chase.
+        assert_eq!(key_at(eastern(2027, 9, 2, 7, 0)), None);
     }
 
     #[test]
     fn catch_up_is_offered_only_once() {
         let state = DonationState {
-            last_shown: Some("2026-07-31".into()),
+            last_shown: Some("2027-07-31".into()),
             ..Default::default()
         };
-        assert_eq!(due_donation(eastern(2026, 8, 1, 12, 0), &state), None);
-    }
-
-    #[test]
-    fn anchored_to_eastern_not_the_users_clock() {
-        // 08:00 Eastern on 2 Sep 2026 is 12:00 UTC.
-        assert_eq!(key_of(eastern(2026, 9, 2, 8, 0)), Some("2026-09-02".into()));
-        assert_eq!(key_of(Utc.with_ymd_and_hms(2026, 9, 2, 11, 59, 0).unwrap()), None);
-        assert_eq!(key_of(Utc.with_ymd_and_hms(2026, 9, 2, 12, 0, 0).unwrap()), Some("2026-09-02".into()));
-    }
-
-    #[test]
-    fn dst_is_handled() {
-        // 8am Eastern is 13:00 UTC in July (EDT) and 12:00 UTC in November (EST).
-        assert_eq!(key_of(eastern(2026, 7, 31, 10, 0)), Some("2026-07-31".into()));
-        assert_eq!(
-            key_of(Utc.with_ymd_and_hms(2026, 7, 31, 13, 59, 0).unwrap()),
-            None
-        );
-        assert_eq!(
-            key_of(Utc.with_ymd_and_hms(2026, 7, 31, 14, 0, 0).unwrap()),
-            Some("2026-07-31".into())
-        );
-        // 25 Nov is EST: 10:00 Eastern is 15:00 UTC.
-        assert_eq!(
-            key_of(Utc.with_ymd_and_hms(2026, 11, 25, 15, 0, 0).unwrap()),
-            Some("2026-11-25".into())
-        );
+        assert_eq!(due_donation(eastern(2027, 8, 1, 12, 0), &state, LOC), None);
     }
 }
