@@ -65,6 +65,7 @@
   let unlistenFocus: (() => void) | null = null;
   let tickInterval: ReturnType<typeof setInterval> | null = null;
   let showDonation = false;
+  let donationKey = '';
   let unlistenDonation: (() => void) | null = null;
   // Wall-clock heartbeat. Anything that needs "what day is it" must read this
   // rather than calling new Date() inside a reactive statement.
@@ -99,7 +100,10 @@
     licenseStatus = await getLicenseStatus();
     // Listen for 30-second backend tick
     unlisten = await listen('astro:tick', refresh);
-    unlistenDonation = await listen(DONATION_EVENT, () => { showDonation = true; });
+    unlistenDonation = await listen<string>(DONATION_EVENT, (e) => {
+      donationKey = e.payload ?? '';
+      showDonation = true;
+    });
     tickInterval = setInterval(updateMins, 30_000);
 
     // Scroll to current hour on focus (best-effort, non-blocking)
@@ -407,7 +411,7 @@
 
 <!-- Overlay, so it can appear above whatever view is showing. -->
 {#if showDonation}
-  <DonationCard on:close={() => showDonation = false} />
+  <DonationCard occurrenceKey={donationKey} on:close={() => showDonation = false} />
 {/if}
 
 <style>

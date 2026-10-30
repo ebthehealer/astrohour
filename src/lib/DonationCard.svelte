@@ -2,7 +2,13 @@
   import { createEventDispatcher } from 'svelte';
   import { DONATE_URL, dismissDonation, recordDonationClick } from './api';
 
+  /** Occurrence key from the backend, e.g. "2026-10-11". Empty for a preview. */
+  export let occurrenceKey = '';
+
   const dispatch = createEventDispatcher<{ close: void }>();
+
+  // 11 October is the creator's birthday, and gets its own wording.
+  $: isBirthday = occurrenceKey.endsWith('-10-11');
 
   /**
    * The quiet period is recorded before the browser is opened, so it starts
@@ -32,17 +38,25 @@
   <div class="card" role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="donation-title"
     on:click|stopPropagation>
 
-    <div class="glyph" aria-hidden="true">♄</div>
+    <img class="logo" src="/logo.png" alt="AstroHour" />
 
-    <h2 id="donation-title">AstroHour is free</h2>
-    <p class="lede">
-      Every feature, on every platform, with no licence and no account.
-    </p>
-    <p class="ask">
-      If it earns a place in your day, a donation keeps it going.
-    </p>
+    {#if isBirthday}
+      <h2 id="donation-title">Happy birthday to the creator of AstroHour!</h2>
+      <p class="lede">
+        Ad-free, no paywalls, no accounts. If it's earned a place in your day,
+        please consider a $10 donation to celebrate her joyous solar return.
+      </p>
+    {:else}
+      <h2 id="donation-title">Thank you for using AstroHour.</h2>
+      <p class="lede">
+        Ad-free, no paywalls, no accounts. If it's earned a place in your day,
+        a $10 donation keeps it free… and is perfect for Jupiter hour.
+      </p>
+    {/if}
 
-    <button class="donate" on:click={donate}>♥ Donate</button>
+    <button class="donate" on:click={donate}>
+      <span class="jupiter" aria-hidden="true">♃</span> Donate
+    </button>
 
     <div class="dismiss">
       <button on:click={notNow}>Not now</button>
@@ -75,14 +89,14 @@
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
   }
 
-  .glyph {
-    font-size: 30px;
-    line-height: 1;
-    color: var(--accent, #e0b86a);
+  .logo {
+    width: 128px;
+    height: auto;
+    /* The mark is drawn in warm gold, so it needs no tinting. */
   }
 
   h2 {
-    margin: 12px 0 10px;
+    margin: 14px 0 10px;
     font-size: 17px;
     font-weight: 600;
     letter-spacing: 0.01em;
@@ -95,8 +109,9 @@
     color: var(--text-secondary, #aab);
   }
 
-  .ask {
-    color: var(--text-muted, #889);
+  .jupiter {
+    font-size: 15px;
+    vertical-align: -1px;
   }
 
   .donate {
