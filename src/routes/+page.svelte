@@ -310,15 +310,19 @@
 
       <!-- ── Day ruler + sun + moon -->
       <section class="day-moon">
-        <div class="day-date">{dayDate}</div>
-        <div class="day-row">
-          <span class="day-label">{dayName}</span>
-          <span class="ruler">{planetSymbol(dayRuler)} {dayRuler} Day</span>
-          <span class="sun-times">
+        <div class="day-top">
+          <div class="day-left">
+            <div class="day-date">{dayDate}</div>
+            <div class="day-row">
+              <span class="day-label">{dayName}</span>
+              <span class="ruler">{planetSymbol(dayRuler)} {dayRuler} Day</span>
+            </div>
+          </div>
+          <div class="sun-times">
             <span>☀️ {sunrise}–{sunset}</span>
             {#if nextNewMoon}<span class="moon-phase-line">🌑 New &nbsp;{nextNewMoon}</span>{/if}
             {#if nextFullMoon}<span class="moon-phase-line">🌕 Full &nbsp;{nextFullMoon}</span>{/if}
-          </span>
+          </div>
         </div>
         <div class="moon-row">
           <span class="phase-emoji">{phaseEmoji(moon.phase)}</span>
@@ -526,30 +530,38 @@
     border-bottom: 1px solid var(--bg-highlight);
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 9px;
   }
   .day-row {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     gap: 8px;
-    flex-wrap: wrap;
   }
+  /* The date sits directly above the weekday and its ruler, so the two read
+     as one block rather than as two separate lines. */
+  .day-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .day-left { display: flex; flex-direction: column; }
   .day-date {
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--text-muted);
-    margin-bottom: 2px;
   }
   .day-label { color: var(--text-secondary); }
   .ruler { color: var(--accent); font-weight: 600; }
   .sun-times {
-    color: var(--text-secondary); font-size: 11px; margin-left: auto;
+    color: var(--text-secondary); font-size: 11px;
     display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+    text-align: right;
   }
   .moon-phase-line { opacity: 0.85; }
-  .moon-row { display: flex; align-items: center; gap: 10px; }
+  .moon-row { display: flex; align-items: center; justify-content: center; gap: 10px; }
   .phase-emoji { font-size: 20px; }
   .phase-name { font-weight: 600; color: var(--text-primary); font-size: 13px; }
   .lunar-day { font-size: 11px; color: var(--text-secondary); }
