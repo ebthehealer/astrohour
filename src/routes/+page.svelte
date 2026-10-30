@@ -15,15 +15,13 @@
   import Settings from '$lib/Settings.svelte';
   import Notes from '$lib/Notes.svelte';
   import NotesHistory from '$lib/NotesHistory.svelte';
-  import License from '$lib/License.svelte';
-  import { makePlanetKey, todayString, getLicenseStatus, type LicenseStatus } from '$lib/api';
+  import { makePlanetKey, todayString } from '$lib/api';
   import { themes, applyTheme, DEFAULT_THEME } from '$lib/themes';
 
   // ── App-level state
   let ready = false;          // prefs loaded
   let locationSet = false;    // has a real location (not fallback default)
   let showSettings = false;
-  let showLicense  = false;
   let showNotesHistory = false;
 
   // Notes overlay state
@@ -31,11 +29,6 @@
   let notesName:  string | null = null;  // human label for the overlay header
   let notesGlyph: string = '';
 
-  // License status (refreshed on mount + after activation)
-  let licenseStatus: LicenseStatus = { status: 'none' };
-  $: isPremium   = licenseStatus.status === 'active';
-  // On Linux all features are free; backend sets key_hash = 'linux-free'.
-  $: isLinuxFree = isPremium && (licenseStatus as any).key_hash === 'linux-free';
 
   // Time-travel date (null = today)
   let travelDate: string | null = null;
@@ -50,7 +43,6 @@
   let lat = 40.7128;
   let lon = -74.0060;
   let displayMode: DisplayMode = 'Short';
-  let deviceSecret = '';
   let currentTheme = DEFAULT_THEME;
   let trayIconColor = 'auto';
   let notificationsEnabled = true;
@@ -79,7 +71,6 @@
     lon = prefs.lon;
     displayMode = prefs.display_mode as DisplayMode;
     locationSet = prefs.location_set;
-    deviceSecret = prefs.device_secret;
     // Apply saved theme (falls back to default if not set)
     trayIconColor = prefs.tray_icon_color ?? 'white';
     notificationsEnabled = prefs.notifications_enabled ?? true;
@@ -96,8 +87,6 @@
     if (locationSet) {
       await refresh();
     }
-    // Load license status
-    licenseStatus = await getLicenseStatus();
     // Listen for 30-second backend tick
     unlisten = await listen('astro:tick', refresh);
     unlistenDonation = await listen<string>(DONATION_EVENT, (e) => {
@@ -158,23 +147,20 @@
   // ── Notes
   async function openNotes(hourIndex: number, planetName: string, glyph = '') {
     notesGlyph = glyph;
-    if (!isPremium) { showLicense = true; return; }
     const today = await todayString();
     const date  = travelDate ?? today;
     notesKey  = await makePlanetKey(date, hourIndex);
     notesName = `${planetName} Hour`;
   }
 
-  // ── Time travel (premium only)
+  // ── Time travel
   function prevDay() {
-    if (!isPremium) { showLicense = true; return; }
     const base = travelDate ? new Date(travelDate) : new Date();
     base.setDate(base.getDate() - 1);
     travelDate = base.toISOString().slice(0, 10);
     refresh();
   }
   function nextDay() {
-    if (!isPremium) { showLicense = true; return; }
     const base = travelDate ? new Date(travelDate) : new Date();
     base.setDate(base.getDate() + 1);
     travelDate = base.toISOString().slice(0, 10);
@@ -205,12 +191,6 @@
     displayMode = e.detail.displayMode;
     showSettings = false;
     await refresh();
-  }
-
-  // ── License activated callback
-  async function onLicenseActivated() {
-    licenseStatus = await getLicenseStatus();
-    showLicense = false;
   }
 
   // ── Derived display values
@@ -257,13 +237,6 @@
     planetName={notesName}
     planetGlyph={notesGlyph}
     onClose={() => { notesKey = null; notesName = null; notesGlyph = ''; }}
-  />
-
-{:else if showLicense}
-  <License
-    {deviceSecret}
-    onClose={() => showLicense = false}
-    onActivated={onLicenseActivated}
   />
 
 {:else if showSettings}
@@ -352,7 +325,7 @@
         </div>
       </section>
 
-      <!-- ── Time travel bar (premium) -->
+      <!-- ── Time travel bar -->
       <div class="time-travel">
         <button class="tt-btn" on:click={prevDay} title="Previous day">‹</button>
         <span class="tt-date" class:today={!travelDate}>
@@ -362,7 +335,6 @@
           {:else}
             Today
           {/if}
-          {#if !isPremium}<span class="tt-lock">&#128274; Premium</span>{/if}
         </span>
         <button class="tt-btn" on:click={nextDay} title="Next day">›</button>
       </div>
@@ -384,7 +356,7 @@
               <span class="h-seq">{h.is_day ? '☀' : '🌙'} {h.sequence}</span>
               {#if isCurrent}<span class="h-now">◄ now</span>{/if}
               <button class="h-note" on:click={() => openNotes(h.index, h.planet, planetSymbol(h.planet))}
-                title="{isPremium ? 'Add note' : 'Premium: notes'}"
+                title="Add note"
               >&#9998;</button>
             </li>
           {/each}
@@ -395,11 +367,7 @@
       <footer class="loc-footer">
         <span>📍 {formatCoord(lat, 'N', 'S')}, {formatCoord(lon, 'E', 'W')}</span>
         <div class="footer-actions">
-          {#if isLinuxFree}
-            <a class="settings-link donation" href="https://astrohour.app/donate" target="_blank" rel="noreferrer">♥ Donate</a>
-          {:else if !isPremium}
-            <button class="settings-link premium" on:click={() => showLicense = true}>✨ Premium</button>
-          {/if}
+          <a class="settings-link donation" href="https://astrohour.app/donate" target="_blank" rel="noreferrer">♥ Donate</a>
           <button class="settings-link" on:click={() => showNotesHistory = true}>📓 Notes</button>
           <button class="settings-link" on:click={() => showSettings = true}>⚙️ Settings</button>
         </div>
@@ -629,7 +597,6 @@
     cursor: pointer; margin-left: 6px;
     text-decoration: underline;
   }
-  .tt-lock { color: var(--text-muted); font-size: 10px; margin-left: 6px; }
 
   /* ── Hour row note button */
   .hour-row {
@@ -689,8 +656,6 @@
     line-height: 1.2;
   }
   .settings-link:hover { color: var(--text-primary); background: var(--bg-elevated); }
-  .settings-link.premium { color: var(--link-color); }
-  .settings-link.premium:hover { color: var(--accent); background: var(--bg-elevated); }
   .settings-link.donation { color: var(--danger); }
   .settings-link.donation:hover { color: var(--accent); background: var(--bg-elevated); }
 </style>
