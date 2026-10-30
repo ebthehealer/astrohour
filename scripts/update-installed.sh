@@ -47,6 +47,13 @@ if git rev-parse --abbrev-ref "@{upstream}" >/dev/null 2>&1; then
   fi
 fi
 
+# Tauri compiles the frontend (build/) into the Rust binary. Cargo does not
+# always notice that build/ changed, and then happily relinks the OLD UI into
+# the new package. Forcing the app crates to recompile makes that impossible.
+echo "==> Discarding cached app build so the current UI is embedded"
+rm -rf build
+cargo clean --release -p astrohour -p astrohour_lib 2>/dev/null || cargo clean --release -p astrohour
+
 echo "==> Building release packages (this takes a few minutes)…"
 cargo tauri build --bundles rpm
 
