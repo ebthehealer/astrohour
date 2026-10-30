@@ -201,6 +201,9 @@
   // is evaluated once at mount and never again, which left the weekday frozen
   // at whatever day the app happened to be launched on.
   $: dayName = new Date(dayTick).toLocaleDateString([], { weekday: 'long' });
+  $: dayDate = new Date(dayTick).toLocaleDateString([], {
+    year: 'numeric', month: 'long', day: 'numeric'
+  });
   $: dayRuler = (() => {
     if (travelDate) return schedule?.planetary_day ?? '';
     return calendarRulerNames[new Date(dayTick).getDay()];
@@ -307,6 +310,7 @@
 
       <!-- ── Day ruler + sun + moon -->
       <section class="day-moon">
+        <div class="day-date">{dayDate}</div>
         <div class="day-row">
           <span class="day-label">{dayName}</span>
           <span class="ruler">{planetSymbol(dayRuler)} {dayRuler} Day</span>
@@ -529,6 +533,14 @@
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
+  }
+  .day-date {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 2px;
   }
   .day-label { color: var(--text-secondary); }
   .ruler { color: var(--accent); font-weight: 600; }
