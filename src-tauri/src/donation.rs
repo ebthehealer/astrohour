@@ -32,7 +32,7 @@ use chrono_tz::Tz;
 
 mod schedule;
 
-pub use schedule::{spawn_refresh, Schedule};
+pub use schedule::Schedule;
 
 /// How a reminder's moment is determined.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -270,8 +270,8 @@ pub fn check_due(app: &tauri::AppHandle) {
         return;
     };
     let state = load(app);
-    let schedule = Schedule::load(app);
-    if let Some(o) = due_donation(Utc::now(), &state, loc, &schedule) {
+    let schedule = Schedule::bundled();
+    if let Some(o) = due_donation(Utc::now(), &state, loc, schedule) {
         let mut next = state.clone();
         next.last_shown = Some(o.key());
         let _ = persist(app, &next);
