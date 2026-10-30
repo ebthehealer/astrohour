@@ -407,7 +407,7 @@
       <div class="section-title">Donation Reminders</div>
       <p class="hint">
         {#if nextDonation}
-          AstroHour™ is free on every platform. The next card is due
+          AstroHour is free on every platform. The next card is due
           <strong>{nextDonation}</strong>.
         {:else}
           Donation reminders are turned off.
