@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.3.0 (2026-10-30)
+
+AstroHour is free on every platform. There is no licence, no account and
+no advertising — it is supported by donations instead.
+
+### Changed
+- **The paywall is gone.** Notes and the time-travel arrows were locked
+  behind a licence and are now simply available. The Premium button in
+  the footer is now a Donate link for everyone, not just Linux users
+- Reminders are asked for on six dates a year, at the start of the first
+  Jupiter-ruled hour — derived from sunrise where you are, so the card
+  arrives in your own morning rather than at one instant worldwide
+- The donation card offers three answers: Donate, Not now (which waits
+  for the next date), and Don't ask again
+
+### Removed
+- The licence system, its screen, and the Stronghold vault that held the
+  key. Nothing else used the vault, and its files were shared between
+  running copies of the app, which is what made a dev build and an
+  installed build corrupt each other
+
+### Fixed
+- The weekday label froze at whatever day the app was launched on; it had
+  no dependencies, so it was evaluated once and never again
+- `rpm -q --quiet` returns empty rather than a version, which broke the
+  install script's upgrade detection
+- The tray hover card repeated the planet and hour name already shown in
+  its heading
+
+### Added
+- Donation card, with the AstroHour mark and a Jupiter glyph on the
+  donate button
+
 ## 0.2.0 (2025-07-22)
 
 ### Added
