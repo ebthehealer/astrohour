@@ -19,7 +19,6 @@ export interface InitPrefsResult {
   lat:                     number;
   lon:                     number;
   display_mode:            string;
-  device_secret:           string;  // per-install hex string, used as stronghold vault password
   tray_icon_color:         string;  // "white", "gold", or "#rrggbb"
   notifications_enabled:   boolean;
   clock_format:            string;  // "12" or "24"
@@ -154,7 +153,7 @@ export const setReminderSound   = (sound: SoundName)  => invoke<void>('set_remin
 /** Play a sound once so the user can hear what they picked. */
 export const previewSound       = (sound: SoundName)  => invoke<void>('preview_sound', { sound });
 
-// ── Phase 2: Notes + License types ─────────────────────────────────────────────
+// ── Phase 2: Notes types ────────────────────────────────────────────────────────
 
 export interface Note {
   id: number;
@@ -164,25 +163,12 @@ export interface Note {
   updated_at: string;
 }
 
-export type LicenseStatus =
-  | { status: 'none' }
-  | { status: 'active'; key_hash: string; activated_at: string }
-  | { status: 'invalid' };
-
 // ── Phase 2: Notes IPC ───────────────────────────────────────────────────
 
 export const makePlanetKey = (date: string, hourIndex: number) =>
   invoke<string>('make_planet_key', { date, hourIndex });
 
 export const todayString = () => invoke<string>('today_string');
-
-// ── Phase 2: License IPC ─────────────────────────────────────────────────
-
-export const getLicenseStatus  = ()                 => invoke<LicenseStatus>('get_license_status');
-export const activateLicense   = (rawKey: string)   => invoke<string>('activate_license', { rawKey });
-export const deactivateLicense = ()                 => invoke<void>('deactivate_license');
-export const restoreLicense    = (keyHash: string | null, activatedAt: string | null) =>
-  invoke<void>('restore_license', { keyHash, activatedAt });
 
 // ── Donation reminders ───────────────────────────────────────────────────
 
