@@ -317,26 +317,17 @@ pub fn record_donation_click(app: tauri::AppHandle) -> Result<(), String> {
     persist(&app, &state)
 }
 
-/// Put the card up now, ignoring the schedule. For previewing.
+/// Put the card up now, ignoring the schedule.
+///
+/// Development only: `debug_assertions` is off in release builds, so the
+/// command is not registered there and cannot be reached from a download.
+/// In a debug build, call it from the devtools console with
+/// `window.__TAURI__.core.invoke('preview_donation')`.
+#[cfg(debug_assertions)]
 #[tauri::command]
 pub fn preview_donation(app: tauri::AppHandle) -> Result<(), String> {
     app.emit(EVENT_DONATION, String::new())
         .map_err(|e| e.to_string())
-}
-
-/// When the next card is due, for display in Settings.
-#[tauri::command]
-pub fn next_donation_date(app: tauri::AppHandle) -> Option<String> {
-    let state = load(&app);
-    if state.opted_out {
-        return None;
-    }
-    let loc = location_of(&app)?;
-    let today = Utc::now().with_timezone(&Local).date_naive();
-    occurrences_near(today, loc)
-        .into_iter()
-        .find(|o| o.date >= today)
-        .map(|o| o.key())
 }
 
 #[cfg(test)]
