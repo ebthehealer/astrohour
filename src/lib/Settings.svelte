@@ -10,6 +10,8 @@
     setHourSound,
     setReminderSound,
     previewSound,
+    previewDonation,
+    nextDonationDate,
     REMINDER_CHOICES,
     SOUND_OPTIONS,
     type DisplayMode,
@@ -70,6 +72,10 @@
 
   // Load autostart state on mount
   getAutostart().then(v => { autostart = v; });
+
+  // When the next donation card is due, or null if reminders are off.
+  let nextDonation: string | null = null;
+  nextDonationDate().then(v => { nextDonation = v; });
 
   async function useMyLocation() {
     geoStatus = 'loading';
@@ -393,6 +399,21 @@
           <div class="toggle-thumb"></div>
         </div>
       </label>
+    </section>
+
+    <!-- Donation reminders. The preview button exists so the card can be
+         looked at without waiting for one of the seven dates. -->
+    <section>
+      <div class="section-title">Donation Reminders</div>
+      <p class="hint">
+        {#if nextDonation}
+          AstroHour is free on every platform. The next card is due
+          <strong>{nextDonation}</strong>.
+        {:else}
+          Donation reminders are turned off.
+        {/if}
+      </p>
+      <button class="preview-card" on:click={previewDonation}>Show the card now</button>
     </section>
 
     {#if saveError}
@@ -782,4 +803,16 @@
     height: 8px;
     border-radius: 50%;
   }
+  .preview-card {
+    margin-top: 8px;
+    padding: 6px 12px;
+    border: 1px solid var(--bg-highlight, #1a4a80);
+    border-radius: 6px;
+    background: var(--bg-elevated, #0f3460);
+    color: var(--text-primary, #ddd);
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .preview-card:hover { border-color: var(--accent, #e0b86a); }
 </style>

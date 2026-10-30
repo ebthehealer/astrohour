@@ -183,3 +183,19 @@ export const activateLicense   = (rawKey: string)   => invoke<string>('activate_
 export const deactivateLicense = ()                 => invoke<void>('deactivate_license');
 export const restoreLicense    = (keyHash: string | null, activatedAt: string | null) =>
   invoke<void>('restore_license', { keyHash, activatedAt });
+
+// ── Donation reminders ───────────────────────────────────────────────────
+
+/** Where donations go. One place, so the card and the settings link agree. */
+export const DONATE_URL = 'https://astrohour.app/donate';
+
+/** Event emitted when a card should appear. Payload is the occurrence key. */
+export const DONATION_EVENT = 'astro:donation';
+
+/** "Don't ask again" is permanent; "not now" needs no call. */
+export const dismissDonation    = (forever: boolean) => invoke<void>('dismiss_donation', { forever });
+/** Starts the 12-month quiet period. Call from any Donate click. */
+export const recordDonationClick = ()             => invoke<void>('record_donation_click');
+/** Show the card now, ignoring the schedule. */
+export const previewDonation    = ()               => invoke<void>('preview_donation');
+export const nextDonationDate   = ()               => invoke<string | null>('next_donation_date');
