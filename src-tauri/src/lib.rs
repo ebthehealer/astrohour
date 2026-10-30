@@ -42,8 +42,6 @@ pub fn run() {
 
             tray::setup_tray(app)?;
             let app_handle = app.handle().clone();
-            // Background; nothing waits on it and failure is not an error.
-            donation::spawn_refresh(app_handle.clone());
             timer::start_refresh_timer(app_handle);
             Ok(())
         })
