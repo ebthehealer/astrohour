@@ -48,7 +48,7 @@
 
 <div class="first-run">
   <div class="logo">♃</div>
-  <h1>AstroHour</h1>
+  <h1>AstroHour™</h1>
   <p class="sub">Planetary hours for your location</p>
 
   {#if status === 'detecting'}

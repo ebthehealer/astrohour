@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "AstroHour",
+        "title": "AstroHour\u2122",
         "width": 380,
         "height": 520,
         "minWidth": 320,
@@ -45,7 +45,7 @@
     ],
     "category": "Utility",
     "shortDescription": "Planetary Hours in your status bar",
-    "longDescription": "AstroHour shows the current planetary hour, moon phase, and lunar day in your system status bar. Includes a full 24-hour schedule, notes per planetary hour, hour-change notifications, and multiple color themes. Free and fully featured on Linux.",
+    "longDescription": "AstroHour\u2122 shows the current planetary hour, moon phase, and lunar day in your system status bar. Includes a full 24-hour schedule, notes per planetary hour, hour-change notifications, and multiple color themes. Free and fully featured on Linux.",
     "linux": {
       "deb": {
         "section": "science",

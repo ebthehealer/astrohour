@@ -153,7 +153,7 @@
   <div class="panel">
 
     <div class="header">
-      <span class="title">AstroHour Premium</span>
+      <span class="title">AstroHour™ Premium</span>
       <button class="close" on:click={onClose} aria-label="Close">×</button>
     </div>
 

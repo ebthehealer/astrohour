@@ -38,13 +38,13 @@
   <div class="card" role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="donation-title"
     on:click|stopPropagation>
 
-    <img class="logo" src="/logo.png" alt="AstroHour" />
+    <img class="logo" src="/logo.png" alt="AstroHour™" />
 
     <h2 id="donation-title">
       {#if isBirthday}
-        Happy birthday to the creator of AstroHour!
+        Happy birthday to the creator of AstroHour™!
       {:else}
-        Thank you for using AstroHour.
+        Thank you for using AstroHour™.
       {/if}
     </h2>
 
