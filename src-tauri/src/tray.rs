@@ -27,7 +27,7 @@ use crate::commands::SharedState;
 // ── Setup ─────────────────────────────────────────────────────────────────────
 
 pub fn setup_tray(app: &mut App) -> tauri::Result<()> {
-    let open_i = MenuItem::with_id(app, "open", "Open AstroHour", true, None::<&str>)?;
+    let open_i = MenuItem::with_id(app, "open", "Open AstroHour™", true, None::<&str>)?;
     let quit_i = MenuItem::with_id(app, "quit", "Quit",           true, None::<&str>)?;
     let menu   = Menu::with_items(app, &[&open_i, &quit_i])?;
 
@@ -35,7 +35,7 @@ pub fn setup_tray(app: &mut App) -> tauri::Result<()> {
 
     let mut builder = TrayIconBuilder::with_id("main")
         .menu(&menu)
-        .tooltip("AstroHour")
+        .tooltip("AstroHour™")
         .title(&initial_text)   // shown as menu-bar text on macOS
         .on_tray_icon_event(|tray, event| {
             // Let positioner record tray rect for TrayBottomCenter
