@@ -153,6 +153,123 @@ pub fn due_donation(now: DateTime<Utc>, state: &DonationState) -> Option<Occurre
     None
 }
 
+// ── Persistence and commands ─────────────────────────────────────────────────
+
+use tauri::Emitter;
+use tauri_plugin_store::StoreExt;
+
+/// Event the frontend listens for. Payload is the occurrence key, or an empty
+/// string for a preview.
+pub const EVENT_DONATION: &str = "astro:donation";
+
+const KEY_LAST_SHOWN: &str = "donation_last_shown";
+const KEY_OPTED_OUT: &str = "donation_opted_out";
+const KEY_LAST_DONATED: &str = "donation_last_donated";
+
+pub fn load(app: &tauri::AppHandle) -> DonationState {
+    let Ok(store) = app.store("prefs.json") else {
+        return DonationState::default();
+    };
+    DonationState {
+        last_shown: store
+            .get(KEY_LAST_SHOWN)
+            .and_then(|v| v.as_str().map(String::from)),
+        opted_out: store
+            .get(KEY_OPTED_OUT)
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+        last_donated: store
+            .get(KEY_LAST_DONATED)
+            .and_then(|v| v.as_str().map(String::from))
+            .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+            .map(|d| d.with_timezone(&Utc)),
+    }
+}
+
+fn persist(app: &tauri::AppHandle, state: &DonationState) -> Result<(), String> {
+    let store = app.store("prefs.json").map_err(|e| e.to_string())?;
+    store.set(
+        KEY_LAST_SHOWN,
+        match &state.last_shown {
+            Some(k) => serde_json::Value::String(k.clone()),
+            None => serde_json::Value::Null,
+        },
+    );
+    store.set(KEY_OPTED_OUT, serde_json::Value::Bool(state.opted_out));
+    store.set(
+        KEY_LAST_DONATED,
+        match state.last_donated {
+            Some(t) => serde_json::Value::String(t.to_rfc3339()),
+            None => serde_json::Value::Null,
+        },
+    );
+    store.save().map_err(|e| e.to_string())
+}
+
+/// Check the clock and, if a card is due, put it up.
+///
+/// The occurrence is recorded as shown *before* the event is emitted. If the
+/// app dies with the card on screen we would rather lose one reminder than
+/// re-nag on every restart.
+pub fn check_due(app: &tauri::AppHandle) {
+    let state = load(app);
+    if let Some(o) = due_donation(Utc::now(), &state) {
+        let mut next = state.clone();
+        next.last_shown = Some(o.key());
+        let _ = persist(app, &next);
+        let _ = app.emit(EVENT_DONATION, o.key());
+    }
+}
+
+/// The frontend has the card on screen.
+#[tauri::command]
+pub fn mark_donation_shown(app: tauri::AppHandle, key: String) -> Result<(), String> {
+    let mut state = load(&app);
+    state.last_shown = Some(key);
+    persist(&app, &state)
+}
+
+/// "Not now" needs no bookkeeping — the once-per-occurrence rule already
+/// silences it until the next date. "Don't ask again" is permanent.
+#[tauri::command]
+pub fn dismiss_donation(app: tauri::AppHandle, forever: bool) -> Result<(), String> {
+    let mut state = load(&app);
+    if forever {
+        state.opted_out = true;
+    }
+    persist(&app, &state)
+}
+
+/// The user clicked Donate — from the card or from Settings. Either way the
+/// quiet period starts now.
+#[tauri::command]
+pub fn record_donation_click(app: tauri::AppHandle) -> Result<(), String> {
+    let mut state = load(&app);
+    state.last_donated = Some(Utc::now());
+    persist(&app, &state)
+}
+
+/// Put the card up now, ignoring the schedule. For previewing.
+#[tauri::command]
+pub fn preview_donation(app: tauri::AppHandle) -> Result<(), String> {
+    app.emit(EVENT_DONATION, String::new())
+        .map_err(|e| e.to_string())
+}
+
+/// When the next card is due, for display in Settings.
+#[tauri::command]
+pub fn next_donation_date(app: tauri::AppHandle) -> Option<String> {
+    let state = load(&app);
+    if state.opted_out {
+        return None;
+    }
+    let today = Utc::now().with_timezone(&New_York).date_naive();
+    occurrences_near(today)
+        .into_iter()
+        .find(|o| o.date >= today)
+        .map(|o| o.key())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

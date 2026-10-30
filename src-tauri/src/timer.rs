@@ -78,6 +78,9 @@ pub fn start_refresh_timer(app: AppHandle) {
     std::thread::spawn(move || loop {
         std::thread::sleep(Duration::from_secs(30));
         crate::tray::refresh_tray(&app_heartbeat);
+        // Donation reminders ride the same heartbeat. Cheap: it reads three
+        // keys from the prefs store and compares dates.
+        crate::donation::check_due(&app_heartbeat);
     });
 }
 
