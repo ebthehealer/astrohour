@@ -196,6 +196,3 @@ export const DONATION_EVENT = 'astro:donation';
 export const dismissDonation    = (forever: boolean) => invoke<void>('dismiss_donation', { forever });
 /** Starts the 12-month quiet period. Call from any Donate click. */
 export const recordDonationClick = ()             => invoke<void>('record_donation_click');
-/** Show the card now, ignoring the schedule. */
-export const previewDonation    = ()               => invoke<void>('preview_donation');
-export const nextDonationDate   = ()               => invoke<string | null>('next_donation_date');

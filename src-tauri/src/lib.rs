@@ -82,8 +82,8 @@ pub fn run() {
             // Donation reminders
             donation::dismiss_donation,
             donation::record_donation_click,
+            #[cfg(debug_assertions)]
             donation::preview_donation,
-            donation::next_donation_date,
             // License
             commands::get_license_status,
             commands::activate_license,
