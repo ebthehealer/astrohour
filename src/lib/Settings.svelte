@@ -401,8 +401,9 @@
       </label>
     </section>
 
-    <!-- Donation reminders. The preview button exists so the card can be
-         looked at without waiting for one of the seven dates. -->
+    <!-- Donation reminders. The preview button is a development aid and is
+         stripped from release builds — `npm run dev` sets import.meta.env.DEV,
+         `npm run build` does not, so it cannot reach a download. -->
     <section>
       <div class="section-title">Donation Reminders</div>
       <p class="hint">
@@ -413,7 +414,9 @@
           Donation reminders are turned off.
         {/if}
       </p>
-      <button class="preview-card" on:click={previewDonation}>Show the card now</button>
+      {#if import.meta.env.DEV}
+        <button class="preview-card" on:click={previewDonation}>Show the card now</button>
+      {/if}
     </section>
 
     {#if saveError}
