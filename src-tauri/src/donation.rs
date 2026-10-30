@@ -15,19 +15,24 @@
 //! and Jupiter is the first hour on Thursday — its own day — but the fifth on
 //! Friday.
 //!
-//! A date can instead pin a fixed US Eastern time, which is how 2 September
-//! 2027 is set.
+//! A date can instead pin a fixed wall-clock time in a named time zone, which
+//! is how 2 September 2027 is set.
 //!
-//! ## The schedule is per year
+//! ## The schedule is data
 //!
-//! Times are chosen year by year rather than by one recurring rule, so
-//! `schedule_for(year)` is a lookup. Years with no entry yet fall back to
-//! `DEFAULT_SCHEDULE`; add a new arm when the times for a year are decided.
+//! Times are chosen year by year rather than by one recurring rule, so the
+//! schedule is a lookup by year. It lives in `donation-schedule.json` rather
+//! than in this file, so it can be changed without rebuilding — see the
+//! [`schedule`] submodule.
 
 use astrohour_core::types::Planet;
 use astrohour_core::{planetary_hours, Location};
 use chrono::{DateTime, Datelike, Local, Months, NaiveDate, TimeZone, Utc};
-use chrono_tz::America::New_York;
+use chrono_tz::Tz;
+
+mod schedule;
+
+pub use schedule::Schedule;
 
 /// How a reminder's moment is determined.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -35,38 +40,8 @@ pub enum When {
     /// Start of the first Jupiter-ruled day hour. Depends on sunrise at the
     /// user's location, so the clock time varies by where they are.
     FirstJupiterHour,
-    /// A fixed wall-clock time, in US Eastern.
-    Eastern(u32, u32),
-}
-
-/// 2027, as chosen by hand.
-const SCHEDULE_2027: &[((u32, u32), When)] = &[
-    ((2, 13), When::FirstJupiterHour),
-    ((3, 19), When::FirstJupiterHour),
-    ((5, 6), When::FirstJupiterHour),
-    ((7, 31), When::FirstJupiterHour),
-    ((9, 2), When::Eastern(8, 0)),
-    ((10, 11), When::FirstJupiterHour),
-];
-
-/// Years with no schedule of their own fall back to this. The same six dates,
-/// all on the Jupiter hour — a reasonable default, but it is a placeholder
-/// rather than a decision.
-const DEFAULT_SCHEDULE: &[((u32, u32), When)] = &[
-    ((2, 13), When::FirstJupiterHour),
-    ((3, 19), When::FirstJupiterHour),
-    ((5, 6), When::FirstJupiterHour),
-    ((7, 31), When::FirstJupiterHour),
-    ((9, 2), When::FirstJupiterHour),
-    ((10, 11), When::FirstJupiterHour),
-];
-
-/// The dates and times in force for a given year.
-pub fn schedule_for(year: i32) -> &'static [((u32, u32), When)] {
-    match year {
-        2027 => SCHEDULE_2027,
-        _ => DEFAULT_SCHEDULE,
-    }
+    /// A fixed wall-clock time on the date, in the given zone.
+    At { hours: u32, minutes: u32, zone: Tz },
 }
 
 /// A missed reminder is dropped if the next one is closer than this. Asking
@@ -118,15 +93,20 @@ fn due_at(date: NaiveDate, when: When, loc: Location) -> Option<DateTime<Utc>> {
             .into_iter()
             .find(|h| h.is_day && h.planet == Planet::Jupiter)
             .map(|h| h.start.with_timezone(&Utc)),
-        When::Eastern(hh, mm) => New_York
-            .with_ymd_and_hms(date.year(), date.month(), date.day(), hh, mm, 0)
+        When::At {
+            hours,
+            minutes,
+            zone,
+        } => zone
+            .with_ymd_and_hms(date.year(), date.month(), date.day(), hours, minutes, 0)
             .single()
             .map(|t| t.with_timezone(&Utc)),
     }
 }
 
-fn occurrences_in(year: i32, loc: Location) -> Vec<Occurrence> {
-    let mut v: Vec<Occurrence> = schedule_for(year)
+fn occurrences_in(year: i32, loc: Location, schedule: &Schedule) -> Vec<Occurrence> {
+    let mut v: Vec<Occurrence> = schedule
+        .for_year(year)
         .iter()
         .filter_map(|((m, d), when)| {
             let date = NaiveDate::from_ymd_opt(year, *m, *d)?;
@@ -142,10 +122,10 @@ fn occurrences_in(year: i32, loc: Location) -> Vec<Occurrence> {
 
 /// Every reminder in the neighbourhood of `today`. Three years is enough to
 /// always contain a predecessor and a successor.
-fn occurrences_near(today: NaiveDate, loc: Location) -> Vec<Occurrence> {
+fn occurrences_near(today: NaiveDate, loc: Location, schedule: &Schedule) -> Vec<Occurrence> {
     let mut v = Vec::new();
     for y in [today.year() - 1, today.year(), today.year() + 1] {
-        v.extend(occurrences_in(y, loc));
+        v.extend(occurrences_in(y, loc, schedule));
     }
     v.sort_by_key(|o| o.date);
     v
@@ -178,6 +158,7 @@ pub fn due_donation(
     now: DateTime<Utc>,
     state: &DonationState,
     loc: Location,
+    schedule: &Schedule,
 ) -> Option<Occurrence> {
     if state.opted_out {
         return None;
@@ -187,7 +168,7 @@ pub fn due_donation(
     }
 
     let today = now.with_timezone(&Local).date_naive();
-    let occs = occurrences_near(today, loc);
+    let occs = occurrences_near(today, loc, schedule);
 
     // 1. Today's reminder, once its moment has arrived.
     if let Some(o) = occs.iter().find(|o| o.date == today) {
@@ -289,7 +270,8 @@ pub fn check_due(app: &tauri::AppHandle) {
         return;
     };
     let state = load(app);
-    if let Some(o) = due_donation(Utc::now(), &state, loc) {
+    let schedule = Schedule::bundled();
+    if let Some(o) = due_donation(Utc::now(), &state, loc, schedule) {
         let mut next = state.clone();
         next.last_shown = Some(o.key());
         let _ = persist(app, &next);
@@ -334,6 +316,7 @@ pub fn preview_donation(app: tauri::AppHandle) -> Result<(), String> {
 mod tests {
     use super::*;
     use chrono::{Duration, TimeZone};
+    use chrono_tz::America::New_York;
 
     /// The owner's location. Bedford, Massachusetts — chosen so the due
     /// instants land in the middle of the UTC day, which keeps these tests
@@ -342,6 +325,10 @@ mod tests {
         lat: 42.4604,
         lon: -71.3490,
     };
+
+    fn schedule() -> &'static Schedule {
+        Schedule::bundled()
+    }
 
     fn date(y: i32, m: u32, d: u32) -> NaiveDate {
         NaiveDate::from_ymd_opt(y, m, d).unwrap()
@@ -369,25 +356,38 @@ mod tests {
     }
 
     fn key_at(now: DateTime<Utc>) -> Option<String> {
-        due_donation(now, &none(), LOC).map(|o| o.key())
+        due_donation(now, &none(), LOC, schedule()).map(|o| o.key())
     }
 
     // ── The schedule ─────────────────────────────────────────────────────────
 
     #[test]
+    fn the_bundled_schedule_parses() {
+        // `bundled` panics if it does not, so simply reaching here is the test.
+        let s = schedule();
+        assert!(!s.for_year(2027).is_empty());
+        assert!(!s.for_year(2028).is_empty());
+    }
+
+    #[test]
     fn the_2027_schedule_is_the_six_agreed_dates() {
-        let dates: Vec<(u32, u32)> = SCHEDULE_2027.iter().map(|((m, d), _)| (*m, *d)).collect();
+        let dates: Vec<(u32, u32)> = schedule()
+            .for_year(2027)
+            .iter()
+            .map(|((m, d), _)| (*m, *d))
+            .collect();
         assert_eq!(dates, vec![(2, 13), (3, 19), (5, 6), (7, 31), (9, 2), (10, 11)]);
     }
 
     #[test]
     fn november_25_is_no_longer_scheduled() {
-        assert!(!schedule_for(2027).iter().any(|((m, d), _)| *m == 11 && *d == 25));
+        assert!(!schedule().for_year(2027).iter().any(|((m, d), _)| *m == 11 && *d == 25));
     }
 
     #[test]
     fn may_6_runs_on_the_jupiter_hour_like_the_rest() {
-        let when = schedule_for(2027)
+        let when = schedule()
+            .for_year(2027)
             .iter()
             .find(|((m, d), _)| *m == 5 && *d == 6)
             .map(|(_, w)| *w);
@@ -396,22 +396,26 @@ mod tests {
 
     #[test]
     fn september_2_pins_8am_eastern() {
-        let when = schedule_for(2027)
+        let when = schedule()
+            .for_year(2027)
             .iter()
             .find(|((m, d), _)| *m == 9 && *d == 2)
             .map(|(_, w)| *w);
-        assert_eq!(when, Some(When::Eastern(8, 0)));
+        assert_eq!(
+            when,
+            Some(When::At { hours: 8, minutes: 0, zone: New_York })
+        );
     }
 
     #[test]
     fn unspecified_years_fall_back_to_the_default() {
-        assert_eq!(schedule_for(2028), DEFAULT_SCHEDULE);
-        assert_eq!(schedule_for(1999), DEFAULT_SCHEDULE);
+        let s = schedule();
+        assert_eq!(s.for_year(2028), s.for_year(1999));
     }
 
     #[test]
     fn every_2027_date_resolves_to_a_moment() {
-        for ((m, d), when) in SCHEDULE_2027 {
+        for ((m, d), when) in schedule().for_year(2027) {
             assert!(
                 due_at(date(2027, *m, *d), *when, LOC).is_some(),
                 "{m}-{d} did not resolve"
@@ -472,7 +476,10 @@ mod tests {
             last_shown: Some("2027-09-02".into()),
             ..Default::default()
         };
-        assert_eq!(due_donation(eastern(2027, 9, 2, 9, 0), &state, LOC), None);
+        assert_eq!(
+            due_donation(eastern(2027, 9, 2, 9, 0), &state, LOC, schedule()),
+            None
+        );
     }
 
     #[test]
@@ -482,7 +489,8 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(
-            due_donation(eastern(2028, 9, 2, 12, 0), &state, LOC).map(|o| o.key()),
+            due_donation(eastern(2028, 9, 2, 12, 0), &state, LOC, schedule())
+                .map(|o| o.key()),
             Some("2028-09-02".into())
         );
     }
@@ -493,8 +501,8 @@ mod tests {
             opted_out: true,
             ..Default::default()
         };
-        assert_eq!(due_donation(eastern(2027, 9, 2, 12, 0), &state, LOC), None);
-        assert_eq!(due_donation(eastern(2030, 2, 13, 12, 0), &state, LOC), None);
+        assert_eq!(due_donation(eastern(2027, 9, 2, 12, 0), &state, LOC, schedule()), None);
+        assert_eq!(due_donation(eastern(2030, 2, 13, 12, 0), &state, LOC, schedule()), None);
     }
 
     // ── The quiet period after donating ──────────────────────────────────────
@@ -505,8 +513,8 @@ mod tests {
             last_donated: Some(eastern(2027, 9, 2, 8, 30)),
             ..Default::default()
         };
-        assert_eq!(due_donation(eastern(2027, 10, 11, 12, 0), &state, LOC), None);
-        assert_eq!(due_donation(eastern(2028, 2, 13, 12, 0), &state, LOC), None);
+        assert_eq!(due_donation(eastern(2027, 10, 11, 12, 0), &state, LOC, schedule()), None);
+        assert_eq!(due_donation(eastern(2028, 2, 13, 12, 0), &state, LOC, schedule()), None);
     }
 
     #[test]
@@ -518,9 +526,12 @@ mod tests {
             ..Default::default()
         };
         let anniversary = eastern(2028, 9, 2, 8, 30);
-        assert_eq!(due_donation(anniversary - Duration::minutes(1), &state, LOC), None);
         assert_eq!(
-            due_donation(anniversary, &state, LOC).map(|o| o.key()),
+            due_donation(anniversary - Duration::minutes(1), &state, LOC, schedule()),
+            None
+        );
+        assert_eq!(
+            due_donation(anniversary, &state, LOC, schedule()).map(|o| o.key()),
             Some("2028-09-02".into())
         );
     }
@@ -533,9 +544,10 @@ mod tests {
             last_donated: Some(eastern(2027, 9, 5, 12, 0)),
             ..Default::default()
         };
-        assert_eq!(due_donation(eastern(2028, 9, 2, 12, 0), &state, LOC), None);
+        assert_eq!(due_donation(eastern(2028, 9, 2, 12, 0), &state, LOC, schedule()), None);
         assert_eq!(
-            due_donation(eastern(2028, 10, 11, 12, 0), &state, LOC).map(|o| o.key()),
+            due_donation(eastern(2028, 10, 11, 12, 0), &state, LOC, schedule())
+                .map(|o| o.key()),
             Some("2028-10-11".into())
         );
     }
@@ -583,6 +595,9 @@ mod tests {
             last_shown: Some("2027-07-31".into()),
             ..Default::default()
         };
-        assert_eq!(due_donation(eastern(2027, 8, 1, 12, 0), &state, LOC), None);
+        assert_eq!(
+            due_donation(eastern(2027, 8, 1, 12, 0), &state, LOC, schedule()),
+            None
+        );
     }
 }

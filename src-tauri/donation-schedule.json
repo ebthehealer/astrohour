@@ -1,0 +1,28 @@
+{
+  "_readme": [
+    "When AstroHour asks for a donation.",
+    "",
+    "A date is written MM-DD. On its own it means the start of the first",
+    "Jupiter-ruled day hour, which is derived from sunrise where the user is,",
+    "so everyone gets the card in their own morning. To pin a wall-clock time",
+    "instead, give a time and an IANA zone: { \"on\": \"09-02\", \"at\": \"08:00 America/New_York\" }.",
+    "",
+    "\"years\" fully replaces the date list for that year. Years not listed use",
+    "\"default\". An empty list means no reminders that year."
+  ],
+
+  "version": 1,
+
+  "default": ["02-13", "03-19", "05-06", "07-31", "09-02", "10-11"],
+
+  "years": {
+    "2027": [
+      "02-13",
+      "03-19",
+      "05-06",
+      "07-31",
+      { "on": "09-02", "at": "08:00 America/New_York" },
+      "10-11"
+    ]
+  }
+}
