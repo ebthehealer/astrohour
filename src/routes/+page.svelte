@@ -10,6 +10,8 @@
     type SoundName,
   } from '$lib/api';
   import FirstRun from '$lib/FirstRun.svelte';
+  import DonationCard from '$lib/DonationCard.svelte';
+  import { DONATION_EVENT } from '$lib/api';
   import Settings from '$lib/Settings.svelte';
   import Notes from '$lib/Notes.svelte';
   import NotesHistory from '$lib/NotesHistory.svelte';
@@ -62,6 +64,8 @@
   let unlisten: (() => void) | null = null;
   let unlistenFocus: (() => void) | null = null;
   let tickInterval: ReturnType<typeof setInterval> | null = null;
+  let showDonation = false;
+  let unlistenDonation: (() => void) | null = null;
   // Wall-clock heartbeat. Anything that needs "what day is it" must read this
   // rather than calling new Date() inside a reactive statement.
   let dayTick = Date.now();
@@ -95,6 +99,7 @@
     licenseStatus = await getLicenseStatus();
     // Listen for 30-second backend tick
     unlisten = await listen('astro:tick', refresh);
+    unlistenDonation = await listen(DONATION_EVENT, () => { showDonation = true; });
     tickInterval = setInterval(updateMins, 30_000);
 
     // Scroll to current hour on focus (best-effort, non-blocking)
@@ -108,6 +113,7 @@
   onDestroy(() => {
     unlisten?.();
     unlistenFocus?.();
+    unlistenDonation?.();
     if (tickInterval) clearInterval(tickInterval);
   });
 
@@ -397,6 +403,11 @@
 
     {/if}
   </main>
+{/if}
+
+<!-- Overlay, so it can appear above whatever view is showing. -->
+{#if showDonation}
+  <DonationCard on:close={() => showDonation = false} />
 {/if}
 
 <style>
