@@ -221,14 +221,6 @@ pub fn check_due(app: &tauri::AppHandle) {
     }
 }
 
-/// The frontend has the card on screen.
-#[tauri::command]
-pub fn mark_donation_shown(app: tauri::AppHandle, key: String) -> Result<(), String> {
-    let mut state = load(&app);
-    state.last_shown = Some(key);
-    persist(&app, &state)
-}
-
 /// "Not now" needs no bookkeeping — the once-per-occurrence rule already
 /// silences it until the next date. "Don't ask again" is permanent.
 #[tauri::command]

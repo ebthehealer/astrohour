@@ -80,7 +80,6 @@ pub fn run() {
             commands::make_planet_key,
             commands::today_string,
             // Donation reminders
-            donation::mark_donation_shown,
             donation::dismiss_donation,
             donation::record_donation_click,
             donation::preview_donation,
