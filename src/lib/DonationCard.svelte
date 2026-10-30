@@ -40,19 +40,25 @@
 
     <img class="logo" src="/logo.png" alt="AstroHour" />
 
-    {#if isBirthday}
-      <h2 id="donation-title">Happy birthday to the creator of AstroHour!</h2>
-      <p class="lede">
-        Ad-free, no paywalls, no accounts. If it's earned a place in your day,
-        please consider a $10 donation to celebrate her joyous solar return.
-      </p>
-    {:else}
-      <h2 id="donation-title">Thank you for using AstroHour.</h2>
-      <p class="lede">
-        Ad-free, no paywalls, no accounts. If it's earned a place in your day,
-        a $10 donation keeps it free… and is perfect for Jupiter hour.
-      </p>
-    {/if}
+    <h2 id="donation-title">
+      {#if isBirthday}
+        Happy birthday to the creator of AstroHour!
+      {:else}
+        Thank you for using AstroHour.
+      {/if}
+    </h2>
+
+    <p class="lede">Ad-free, no paywalls, no accounts.</p>
+
+    <p class="ask">
+      {#if isBirthday}
+        If it's earned a place in your day, please consider a $10 donation to
+        celebrate her joyous solar return.
+      {:else}
+        If it's earned a place in your day, a $10 donation keeps it free… and is
+        perfect for Jupiter hour.
+      {/if}
+    </p>
 
     <button class="donate" on:click={donate}>
       <span class="jupiter" aria-hidden="true">♃</span> Donate
@@ -90,7 +96,8 @@
   }
 
   .logo {
-    width: 128px;
+    width: 80px;
+    /* The mark is wide and short, so height follows from the aspect ratio. */
     height: auto;
     /* The mark is drawn in warm gold, so it needs no tinting. */
   }
@@ -112,6 +119,10 @@
   .jupiter {
     font-size: 15px;
     vertical-align: -1px;
+  }
+
+  .ask {
+    color: var(--text-muted, #889);
   }
 
   .donate {
