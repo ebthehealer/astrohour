@@ -3,12 +3,10 @@
 mod commands;
 mod db;
 mod donation;
-mod license;
 mod sound;
 mod tray;
 mod timer;
 
-use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -28,18 +26,7 @@ pub fn run() {
                 .build()
         )
         .manage(std::sync::Mutex::new(commands::AppState::default()))
-        .manage(std::sync::Mutex::new(license::LicenseStatus::None))
         .setup(|app| {
-            // Stronghold salt file — persists in app local data dir.
-            // tauri-plugin-stronghold uses Argon2 internally (kdf feature).
-            let salt_path = app
-                .path()
-                .app_local_data_dir()
-                .expect("cannot resolve app data dir")
-                .join("stronghold.salt");
-            app.handle()
-                .plugin(tauri_plugin_stronghold::Builder::with_argon2(&salt_path).build())?;
-
             tray::setup_tray(app)?;
             let app_handle = app.handle().clone();
             timer::start_refresh_timer(app_handle);
@@ -84,11 +71,6 @@ pub fn run() {
             donation::record_donation_click,
             #[cfg(debug_assertions)]
             donation::preview_donation,
-            // License
-            commands::get_license_status,
-            commands::activate_license,
-            commands::deactivate_license,
-            commands::restore_license,
         ])
         // Hide to tray on window close instead of quitting
         .on_window_event(|window, event| {
