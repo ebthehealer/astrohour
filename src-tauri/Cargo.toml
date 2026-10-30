@@ -1,6 +1,6 @@
 [package]
 name = "astrohour"
-version = "0.3.0"
+version = "0.4.0"
 description = "AstroHour — planetary hours status bar & home screen widget"
 authors = ["eb@livethealt.life"]
 edition = "2021"

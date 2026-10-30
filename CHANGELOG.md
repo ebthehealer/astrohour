@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.0 (2026-10-30)
+
+### Added
+- **The Moon's zodiac sign** is shown with the phase, for example
+  "Waning Gibbous in Cancer ♋︎"
+- **Tropical or sidereal.** Settings → Moon Sign Zodiac switches between the
+  Western tropical zodiac and the Vedic sidereal zodiac (Lahiri ayanamsa)
+
+### Fixed
+- The day and moon header lines up properly: the date sits with the weekday,
+  the sun and moon times sit on the right, and the moon block is centred
+- Updating the installed app always embeds the current interface
+
 ## 0.3.0 (2026-10-30)
 
 AstroHour is free on every platform. There is no licence, no account and
