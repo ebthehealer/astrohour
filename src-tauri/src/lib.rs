@@ -55,6 +55,7 @@ pub fn run() {
             commands::set_notifications_enabled,
             commands::get_clock_format,
             commands::set_clock_format,
+            commands::set_zodiac,
             // Reminders & sounds
             commands::get_reminder_minutes,
             commands::set_reminder_minutes,

@@ -22,6 +22,7 @@ export interface InitPrefsResult {
   tray_icon_color:         string;  // "white", "gold", or "#rrggbb"
   notifications_enabled:   boolean;
   clock_format:            string;  // "12" or "24"
+  zodiac:                  string;  // "tropical" or "sidereal"
   reminder_minutes:        number[]; // lead times, e.g. [5, 15, 30]
   hour_sound:              SoundName;
   reminder_sound:          SoundName;
@@ -47,6 +48,8 @@ export interface MoonPhase {
   elongation_deg: number;
   ecliptic_longitude_deg: number;
   sign: ZodiacSign;
+  sidereal_longitude_deg: number;
+  sidereal_sign: ZodiacSign;
 }
 
 export type ZodiacSign =
@@ -128,6 +131,7 @@ export const setDisplayMode          = (mode: DisplayMode)   => invoke<void>('se
 export const setTrayIconColor        = (color: string)       => invoke<void>('set_tray_icon_color', { color });
 export const getNotificationsEnabled = ()                    => invoke<boolean>('get_notifications_enabled');
 export const setNotificationsEnabled = (enabled: boolean)   => invoke<void>('set_notifications_enabled', { enabled });
+export const setZodiac = (zodiac: string) => invoke<void>('set_zodiac', { zodiac });
 export const getClockFormat          = ()                    => invoke<string>('get_clock_format');
 export const setClockFormat          = (format: string)      => invoke<void>('set_clock_format', { format });
 

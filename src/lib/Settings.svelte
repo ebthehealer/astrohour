@@ -6,6 +6,7 @@
     formatCoord,
     setNotificationsEnabled,
     setClockFormat,
+    setZodiac,
     setReminderMinutes,
     setHourSound,
     setReminderSound,
@@ -26,6 +27,7 @@
   export let trayIconColor: string = 'white';
   export let notificationsEnabled: boolean = true;
   export let clockFormat: string = '12';
+  export let zodiac: string = 'tropical';
   export let reminderMinutes: number[] = [];
   export let hourSound: SoundName = 'chime';
   export let reminderSound: SoundName = 'chime';
@@ -53,6 +55,7 @@
     trayColorChange: string;
     notificationsChange: boolean;
     clockFormatChange: string;
+    zodiacChange: string;
     remindersChange: number[];
     hourSoundChange: SoundName;
     reminderSoundChange: SoundName;
@@ -363,6 +366,23 @@
       {#if soundError}
         <div class="sound-error">{soundError}</div>
       {/if}
+    </section>
+
+    <!-- Zodiac -->
+    <section>
+      <div class="section-title">Moon Sign Zodiac</div>
+      <div class="clock-format-row">
+        {#each [['tropical', 'Tropical  (Western)'], ['sidereal', 'Sidereal  (Vedic, Lahiri)']] as [val, label]}
+          <label class="mode-option" class:selected={zodiac === val}>
+            <input type="radio" bind:group={zodiac} value={val}
+              on:change={async () => {
+                await setZodiac(val);
+                dispatch('zodiacChange', val);
+              }} />
+            <span class="mode-label">{label}</span>
+          </label>
+        {/each}
+      </div>
     </section>
 
     <!-- Clock format -->

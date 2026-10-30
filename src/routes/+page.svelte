@@ -47,6 +47,7 @@
   let trayIconColor = 'auto';
   let notificationsEnabled = true;
   let clockFormat = '12';
+  let zodiac = 'tropical';
   let reminderMinutes: number[] = [];
   let hourSound: SoundName = 'chime';
   let reminderSound: SoundName = 'chime';
@@ -75,6 +76,7 @@
     trayIconColor = prefs.tray_icon_color ?? 'white';
     notificationsEnabled = prefs.notifications_enabled ?? true;
     clockFormat = prefs.clock_format ?? '12';
+    zodiac = prefs.zodiac ?? 'tropical';
     reminderMinutes = prefs.reminder_minutes ?? [];
     hourSound = prefs.hour_sound ?? 'chime';
     reminderSound = prefs.reminder_sound ?? 'chime';
@@ -201,6 +203,7 @@
   // is evaluated once at mount and never again, which left the weekday frozen
   // at whatever day the app happened to be launched on.
   $: dayName = new Date(dayTick).toLocaleDateString([], { weekday: 'long' });
+  $: moonSign = moon ? (zodiac === 'sidereal' ? moon.sidereal_sign : moon.sign) : '';
   $: dayDate = new Date(dayTick).toLocaleDateString([], {
     year: 'numeric', month: 'long', day: 'numeric'
   });
@@ -245,7 +248,7 @@
 {:else if showSettings}
   <Settings
     {lat} {lon} {displayMode} {currentTheme} {trayIconColor}
-    {notificationsEnabled} {clockFormat}
+    {notificationsEnabled} {clockFormat} {zodiac}
     {reminderMinutes} {hourSound} {reminderSound} {soundPlayback}
     on:close={() => showSettings = false}
     on:saved={onSettingsSaved}
@@ -256,6 +259,7 @@
     on:trayColorChange={(e) => { trayIconColor = e.detail; }}
     on:notificationsChange={(e) => { notificationsEnabled = e.detail; }}
     on:clockFormatChange={(e) => { clockFormat = e.detail; }}
+    on:zodiacChange={(e) => { zodiac = e.detail; }}
     on:remindersChange={(e) => { reminderMinutes = e.detail; }}
     on:hourSoundChange={(e) => { hourSound = e.detail; }}
     on:reminderSoundChange={(e) => { reminderSound = e.detail; }}
@@ -327,7 +331,7 @@
         <div class="moon-row">
           <span class="phase-emoji">{phaseEmoji(moon.phase)}</span>
           <div class="moon-text">
-            <div class="phase-name">{phaseName(moon.phase)} in {moon.sign} <span class="sign-glyph">{signGlyph(moon.sign)}&#xFE0E;</span></div>
+            <div class="phase-name">{phaseName(moon.phase)} in {moonSign} <span class="sign-glyph">{signGlyph(moonSign)}&#xFE0E;</span></div>
             <div class="lunar-day">Moon Day {moon.lunar_day} &middot; {Math.round(moon.illumination * 100)}% illuminated</div>
           </div>
         </div>

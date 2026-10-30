@@ -72,6 +72,8 @@ pub struct AppState {
     pub notifications_enabled: bool,
     /// "12" or "24"
     pub clock_format: String,
+    /// "tropical" or "sidereal" (Lahiri): which zodiac the Moon's sign uses
+    pub zodiac: String,
     /// Minutes-before-the-end-of-an-hour at which to fire a reminder.
     /// Empty means reminders are off. Values are drawn from `REMINDER_CHOICES`.
     pub reminder_minutes: Vec<u32>,
@@ -94,6 +96,7 @@ impl Default for AppState {
             tray_icon_color: "auto".to_string(),
             notifications_enabled: true,
             clock_format: "12".to_string(),
+            zodiac: "tropical".to_string(),
             // Opt-in: never start firing reminders the user didn't ask for.
             reminder_minutes: Vec::new(),
             hour_sound: "chime".to_string(),
@@ -151,6 +154,9 @@ pub fn init_prefs(
     if let Some(v) = store.get("clock_format").and_then(|v| v.as_str().map(String::from)) {
         s.clock_format = v;
     }
+    if let Some(v) = store.get("zodiac").and_then(|v| v.as_str().map(String::from)) {
+        if v == "tropical" || v == "sidereal" { s.zodiac = v; }
+    }
     if let Some(arr) = store.get("reminder_minutes").and_then(|v| v.as_array().cloned()) {
         s.reminder_minutes = sanitize_reminders(
             arr.iter().filter_map(|v| v.as_u64().map(|n| n as u32)).collect(),
@@ -179,6 +185,7 @@ pub fn init_prefs(
         tray_icon_color:       s.tray_icon_color.clone(),
         notifications_enabled: s.notifications_enabled,
         clock_format:          s.clock_format.clone(),
+        zodiac:                s.zodiac.clone(),
         reminder_minutes:      s.reminder_minutes.clone(),
         hour_sound:            s.hour_sound.clone(),
         reminder_sound:        s.reminder_sound.clone(),
@@ -209,6 +216,7 @@ pub struct InitPrefsResult {
     pub tray_icon_color:         String,
     pub notifications_enabled:   bool,
     pub clock_format:            String,
+    pub zodiac:                  String,
     pub reminder_minutes:        Vec<u32>,
     pub hour_sound:              String,
     pub reminder_sound:          String,
@@ -238,6 +246,7 @@ pub fn save_prefs(
     store.set("tray_icon_color", s.tray_icon_color.clone());
     store.set("notifications_enabled", s.notifications_enabled);
     store.set("clock_format", s.clock_format.clone());
+    store.set("zodiac", s.zodiac.clone());
     store.set(
         "reminder_minutes",
         serde_json::Value::Array(
@@ -281,6 +290,15 @@ pub fn set_clock_format(state: State<'_, SharedState>, format: String) -> Result
         return Err(format!("invalid clock format {:?}: must be '12' or '24'", format));
     }
     state.lock().unwrap().clock_format = format;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_zodiac(state: State<'_, SharedState>, zodiac: String) -> Result<(), String> {
+    if zodiac != "tropical" && zodiac != "sidereal" {
+        return Err(format!("invalid zodiac {:?}: must be 'tropical' or 'sidereal'", zodiac));
+    }
+    state.lock().unwrap().zodiac = zodiac;
     Ok(())
 }
 
