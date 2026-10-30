@@ -5,7 +5,7 @@
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import {
     initPrefs, getDaySchedule, getCurrentHour, getMoonPhase,
-    planetSymbol, phaseEmoji, phaseName, formatTime, minutesUntil, formatCoord,
+    planetSymbol, signGlyph, phaseEmoji, phaseName, formatTime, minutesUntil, formatCoord,
     type DaySchedule, type PlanetaryHour, type MoonPhase, type DisplayMode,
     type SoundName,
   } from '$lib/api';
@@ -327,7 +327,7 @@
         <div class="moon-row">
           <span class="phase-emoji">{phaseEmoji(moon.phase)}</span>
           <div class="moon-text">
-            <div class="phase-name">{phaseName(moon.phase)}</div>
+            <div class="phase-name">{phaseName(moon.phase)} in {moon.sign} <span class="sign-glyph">{signGlyph(moon.sign)}&#xFE0E;</span></div>
             <div class="lunar-day">Moon Day {moon.lunar_day} &middot; {Math.round(moon.illumination * 100)}% illuminated</div>
           </div>
         </div>
@@ -564,6 +564,7 @@
   .moon-row { display: flex; align-items: center; justify-content: center; gap: 10px; }
   .phase-emoji { font-size: 20px; }
   .phase-name { font-weight: 600; color: var(--text-primary); font-size: 13px; }
+  .sign-glyph { color: var(--accent); }
   .lunar-day { font-size: 11px; color: var(--text-secondary); }
 
   /* ── Hours list */

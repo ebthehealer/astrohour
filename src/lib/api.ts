@@ -45,7 +45,20 @@ export interface MoonPhase {
   illumination: number; // 0.0–1.0
   lunar_day: number;    // 1–30
   elongation_deg: number;
+  ecliptic_longitude_deg: number;
+  sign: ZodiacSign;
 }
+
+export type ZodiacSign =
+  | 'Aries' | 'Taurus' | 'Gemini' | 'Cancer' | 'Leo' | 'Virgo'
+  | 'Libra' | 'Scorpio' | 'Sagittarius' | 'Capricorn' | 'Aquarius' | 'Pisces';
+
+const SIGN_GLYPH: Record<string, string> = {
+  Aries: '\u2648', Taurus: '\u2649', Gemini: '\u264A', Cancer: '\u264B',
+  Leo: '\u264C', Virgo: '\u264D', Libra: '\u264E', Scorpio: '\u264F',
+  Sagittarius: '\u2650', Capricorn: '\u2651', Aquarius: '\u2652', Pisces: '\u2653',
+};
+export const signGlyph = (s: string) => SIGN_GLYPH[s] ?? '';
 
 export interface DaySchedule {
   date: string;
