@@ -18,12 +18,12 @@
 //! A date can instead pin a fixed wall-clock time in a named time zone, which
 //! is how 2 September 2027 is set.
 //!
-//! ## The schedule is data
+//! ## The schedule is per year
 //!
 //! Times are chosen year by year rather than by one recurring rule, so the
-//! schedule is a lookup by year. It lives in `donation-schedule.json` rather
-//! than in this file, so it can be changed without rebuilding — see the
-//! [`schedule`] submodule.
+//! schedule is a lookup by year. The dates themselves live in
+//! `donation-schedule.json`, which is compiled into the binary — see the
+//! [`schedule`] submodule. Changing a date therefore still means a rebuild.
 
 use astrohour_core::types::Planet;
 use astrohour_core::{planetary_hours, Location};
