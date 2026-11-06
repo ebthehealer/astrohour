@@ -1,0 +1,27 @@
+<!-- title: About -->
+<!-- desc: What AstroHour is, how it calculates planetary hours and the Moon sign, and why it is free. -->
+<section class="page narrow prose">
+  <p class="eyebrow">About</p>
+  <h1>Time, the old way</h1>
+  <p class="lede">AstroHour is a small desktop widget for people who keep time by the planets and the Moon.</p>
+
+  <h2>What are planetary hours?</h2>
+  <p>In the traditional system, the daylight (sunrise to sunset) and the night (sunset to the next sunrise) are each divided into twelve equal parts. Because the length of daylight changes through the year, so does the length of an hour. Each hour is ruled in turn by one of the seven classical planets, in the Chaldean order: Saturn, Jupiter, Mars, Sun, Venus, Mercury, Moon. The first hour of each day belongs to the planet that rules the day, which is where the names of the weekdays come from.</p>
+
+  <h2>How it’s calculated</h2>
+  <ul>
+    <li><strong>Sunrise and sunset</strong> come from your latitude and longitude.</li>
+    <li><strong>The Moon’s position</strong> comes from Jean Meeus’s <em>Astronomical Algorithms</em>, implemented directly in Rust. It’s accurate to a few hundredths of a degree, which is plenty for a status-bar widget but is not intended for professional chart work.</li>
+    <li><strong>Moon sign</strong> is shown in the tropical zodiac by default, or the sidereal zodiac using the Lahiri ayanamsa if you switch it in Settings.</li>
+    <li><strong>Lunar day</strong> divides the Sun–Moon angle into thirty equal 12° steps.</li>
+  </ul>
+
+  <h2>Private and offline</h2>
+  <p>Everything is calculated on your own device. AstroHour makes no network requests, has no account system and collects no analytics. Your location and notes are stored only on your computer.</p>
+
+  <h2>Why it’s free</h2>
+  <p>AstroHour used to plan a paid tier. It doesn’t have one: every feature is free on every platform, and the project is supported by voluntary donations instead. If you find it useful, you can <a href="/donate/">donate here</a>.</p>
+
+  <h2>Open source</h2>
+  <p>The app and its calculation library are developed in the open on <a href="{{github_url}}">GitHub</a>. Bug reports and suggestions are welcome.</p>
+</section>

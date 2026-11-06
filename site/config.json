@@ -1,0 +1,14 @@
+{
+  "_help": "Edit this file, then run: python3 build.py. Leave a Stripe link empty to show that button as 'coming soon'.",
+  "site_url": "https://astrohour.app",
+  "contact_email": "hello@astrohour.app",
+  "github_url": "https://github.com/ebthehealer/astrohour",
+  "releases_url": "https://github.com/ebthehealer/astrohour/releases",
+  "stripe_links": {
+    "5": "",
+    "10": "",
+    "20": "",
+    "30": "",
+    "custom": ""
+  }
+}

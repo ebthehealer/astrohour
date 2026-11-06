@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Planetary hours in your status bar · AstroHour</title>
+  <meta name="description" content="AstroHour shows the current planetary hour, moon phase, lunar day and Moon sign in your system tray. Free, private and works offline.">
+  <meta property="og:title" content="Planetary hours in your status bar · AstroHour">
+  <meta property="og:description" content="AstroHour shows the current planetary hour, moon phase, lunar day and Moon sign in your system tray. Free, private and works offline.">
+  <meta property="og:image" content="https://astrohour.app/assets/shot-main.png">
+  <link rel="icon" href="/assets/favicon.png">
+  <link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/"><img src="/assets/icon.png" alt="" width="28" height="28"><span>AstroHour</span></a>
+    <nav>
+      <a href="/#features">Features</a>
+      <a href="/#download">Download</a>
+      <a href="/about/">About</a>
+      <a href="/contact/">Contact</a>
+      <a class="nav-donate" href="/donate/">♥ Donate</a>
+    </nav>
+  </header>
+  <main>
+<section class="hero">
+  <div>
+    <p class="eyebrow">Free · Private · Works offline</p>
+    <h1>Always know the <em>hour</em> you’re in.</h1>
+    <p class="lede">AstroHour lives in your status bar and shows the current planetary hour, the phase of the Moon, the lunar day and the sign the Moon is travelling through. Glance at the icon, hover for the details, or open the popup for the whole day.</p>
+    <div class="actions">
+      <a class="btn" href="#download">Download</a>
+      <a class="btn ghost" href="/donate/">♥ Support AstroHour</a>
+    </div>
+    <div class="pills">
+      <span class="pill">Planetary hours</span>
+      <span class="pill">Moon phase &amp; lunar day</span>
+      <span class="pill">Moon sign</span>
+      <span class="pill">No account</span>
+      <span class="pill">No tracking</span>
+    </div>
+  </div>
+  <div class="shot"><img src="/assets/shot-main.png" alt="The AstroHour popup showing a Jupiter hour, the date, the Moon in Cancer and the full day of planetary hours" width="420" height="760"></div>
+</section>
+
+<section class="block" id="features">
+  <p class="eyebrow">What it does</p>
+  <h2>Everything the day is made of, at a glance</h2>
+  <div class="cards">
+    <div class="card"><div class="glyph">♃</div><h3>Planetary hours</h3><p>The day and night are each split into twelve hours, ruled by the seven classical planets. AstroHour works them out from the real sunrise and sunset where you are.</p></div>
+    <div class="card"><div class="glyph">☽</div><h3>Moon, lunar day &amp; sign</h3><p>Phase, illumination, lunar day and the Moon’s zodiac sign, in either the tropical (Western) or sidereal (Vedic, Lahiri) zodiac. You choose.</p></div>
+    <div class="card"><div class="glyph">✦</div><h3>A quiet tray icon</h3><p>The tray shows just the planet’s symbol. Hover for the details. Colour it Auto, White, Gold or any colour you like.</p></div>
+    <div class="card"><div class="glyph">♀</div><h3>The whole day</h3><p>See every hour of today, page to other days, and jot a note against any hour.</p></div>
+    <div class="card"><div class="glyph">🔔</div><h3>Gentle reminders</h3><p>Optional hour-change notifications and heads-up reminders before an hour ends, with a choice of sounds. Everything is off until you turn it on.</p></div>
+    <div class="card"><div class="glyph">☉</div><h3>Private by design</h3><p>Everything is calculated on your device. Your location never leaves it, and the app makes no network requests at all.</p></div>
+  </div>
+</section>
+
+<section class="block" id="screenshots">
+  <p class="eyebrow">A look inside</p>
+  <h2>Dark by default, light if you prefer</h2>
+  <div class="gallery">
+    <figure class="shot"><img src="/assets/shot-main.png" alt="Main popup, Midnight theme" loading="lazy" width="420" height="760"><figcaption>The day at a glance</figcaption></figure>
+    <figure class="shot"><img src="/assets/shot-light.png" alt="Main popup, Parchment theme" loading="lazy" width="420" height="760"><figcaption>Parchment theme</figcaption></figure>
+    <figure class="shot"><img src="/assets/shot-settings.png" alt="Settings: location, tray icon colour and colour themes" loading="lazy" width="360" height="760"><figcaption>Settings and five colour themes</figcaption></figure>
+  </div>
+</section>
+
+<section class="block" id="download">
+  <p class="eyebrow">Download</p>
+  <h2>Get AstroHour</h2>
+  <p class="lede">AstroHour is free on every platform, with every feature. No licence key, no account.</p>
+  <div class="dl-grid">
+    <div class="dl"><span class="state soon">Build from source</span><h3>Linux</h3><p>Tested on Fedora (KDE Plasma). Ready-made packages are on the way; until then you can build it yourself in a few minutes.</p><p><a href="https://github.com/ebthehealer/astrohour/releases">Releases on GitHub →</a></p></div>
+    <div class="dl"><span class="state planned">In development</span><h3>macOS</h3><p>A menu-bar version is being built.</p></div>
+    <div class="dl"><span class="state planned">In development</span><h3>Windows</h3><p>A system-tray version is being built.</p></div>
+    <div class="dl"><span class="state planned">Planned</span><h3>Android &amp; iOS</h3><p>Home-screen widgets are planned.</p></div>
+    <div class="dl"><span class="state soon">In the repo</span><h3>Noctalia plugin</h3><p>A bar widget for the Noctalia shell.</p><p><a href="https://github.com/ebthehealer/astrohour/tree/main/noctalia">View the plugin →</a></p></div>
+  </div>
+
+  <h3 style="margin-top:36px">Build it on Linux</h3>
+  <p class="small">You need Rust, Node.js 18+ and the <a href="https://v2.tauri.app/start/prerequisites/">Tauri prerequisites</a> for your distribution.</p>
+<pre><code>git clone https://github.com/ebthehealer/astrohour
+cd astrohour
+npm install
+cargo install tauri-cli
+cargo tauri build</code></pre>
+</section>
+
+<section class="block">
+  <div class="card" style="text-align:center;padding:42px 24px">
+    <h2>Free for everyone, kept going by a few</h2>
+    <p class="lede" style="margin:0 auto 24px">AstroHour has no ads and no paid tier. If it earns a place in your day, a donation keeps it maintained and helps it reach more platforms.</p>
+    <a class="btn" href="/donate/">♥ Donate</a>
+  </div>
+</section>
+
+  </main>
+  <footer class="site-footer">
+    <div class="foot-grid">
+      <div><strong>AstroHour</strong><br>Planetary hours, moon phase and Moon sign, always in view.</div>
+      <div>
+        <a href="/about/">About</a>
+        <a href="/contact/">Contact</a>
+        <a href="/policies/">Policies</a>
+        <a href="/donate/">Donate</a>
+      </div>
+      <div>
+        <a href="https://github.com/ebthehealer/astrohour">Source on GitHub</a>
+        <a href="https://github.com/ebthehealer/astrohour/releases">Releases</a>
+        <a href="mailto:hello@astrohour.app">hello@astrohour.app</a>
+      </div>
+    </div>
+    <p class="fine">AstroHour™ · Free to use, supported by donations · Works offline</p>
+  </footer>
+</body>
+</html>
