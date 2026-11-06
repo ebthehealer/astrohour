@@ -294,7 +294,7 @@ pub fn refresh_tray(app: &tauri::AppHandle) {
     let (text, color, tooltip) = {
         let state = app.state::<SharedState>();
         let s = state.lock().unwrap();
-        let bar   = status_bar_text(s.location, s.display_mode);
+        let bar   = status_bar_text(s.location, astrohour_core::types::DisplayMode::IconOnly);
         let color = s.tray_icon_color.clone();
 
         // Use the frontend-supplied offset so the tooltip agrees with the window.
@@ -374,7 +374,7 @@ fn initial_tray_text(app: &App) -> String {
     use astrohour_core::display::status_bar_text;
     let state = app.state::<SharedState>();
     let s = state.lock().unwrap();
-    status_bar_text(s.location, s.display_mode)
+    status_bar_text(s.location, astrohour_core::types::DisplayMode::IconOnly)
 }
 
 #[cfg(test)]

@@ -63,7 +63,6 @@ use std::sync::Mutex;
 
 pub struct AppState {
     pub location: Location,
-    pub display_mode: DisplayMode,
     /// true once geolocation has succeeded or user has entered coords manually
     pub location_set: bool,
     /// Tray icon color: "white", "gold", or a hex string like "#ff8800"
@@ -91,7 +90,6 @@ impl Default for AppState {
     fn default() -> Self {
         Self {
             location: Location { lat: 40.7128, lon: -74.0060 },
-            display_mode: DisplayMode::Short,
             location_set: false,
             tray_icon_color: "auto".to_string(),
             notifications_enabled: true,
@@ -126,23 +124,12 @@ pub fn init_prefs(
 
     let lat = store.get("lat").and_then(|v| v.as_f64());
     let lon = store.get("lon").and_then(|v| v.as_f64());
-    let mode_str = store
-        .get("display_mode")
-        .and_then(|v| v.as_str().map(String::from));
 
     let mut s = state.lock().unwrap();
 
     if let (Some(lat), Some(lon)) = (lat, lon) {
         s.location = Location { lat, lon };
         s.location_set = true;
-    }
-
-    if let Some(m) = &mode_str {
-        s.display_mode = match m.as_str() {
-            "IconOnly" => DisplayMode::IconOnly,
-            "Full"     => DisplayMode::Full,
-            _          => DisplayMode::Short,
-        };
     }
 
     if let Some(color) = store.get("tray_icon_color").and_then(|v| v.as_str().map(String::from)) {
@@ -177,11 +164,6 @@ pub fn init_prefs(
         location_set: s.location_set,
         lat: s.location.lat,
         lon: s.location.lon,
-        display_mode: match s.display_mode {
-            DisplayMode::IconOnly => "IconOnly".into(),
-            DisplayMode::Short    => "Short".into(),
-            DisplayMode::Full     => "Full".into(),
-        },
         tray_icon_color:       s.tray_icon_color.clone(),
         notifications_enabled: s.notifications_enabled,
         clock_format:          s.clock_format.clone(),
@@ -212,7 +194,6 @@ pub struct InitPrefsResult {
     pub location_set:            bool,
     pub lat:                     f64,
     pub lon:                     f64,
-    pub display_mode:            String,
     pub tray_icon_color:         String,
     pub notifications_enabled:   bool,
     pub clock_format:            String,
@@ -238,11 +219,6 @@ pub fn save_prefs(
 
     store.set("lat", s.location.lat);
     store.set("lon", s.location.lon);
-    store.set("display_mode", match s.display_mode {
-        DisplayMode::IconOnly => "IconOnly",
-        DisplayMode::Short    => "Short",
-        DisplayMode::Full     => "Full",
-    });
     store.set("tray_icon_color", s.tray_icon_color.clone());
     store.set("notifications_enabled", s.notifications_enabled);
     store.set("clock_format", s.clock_format.clone());
@@ -521,35 +497,12 @@ pub fn get_day_schedule(
 #[tauri::command]
 pub fn get_status_text(state: State<SharedState>) -> String {
     let s = state.lock().unwrap();
-    status_bar_text(s.location, s.display_mode)
+    status_bar_text(s.location, DisplayMode::IconOnly)
 }
 
 #[tauri::command]
 pub fn get_moon_phase() -> MoonPhase {
     moon_phase(Utc::now())
-}
-
-// ── Display mode ──────────────────────────────────────────────────────────────
-
-#[tauri::command]
-pub fn set_display_mode(state: State<SharedState>, mode: String) -> Result<(), String> {
-    let m = match mode.as_str() {
-        "IconOnly" => DisplayMode::IconOnly,
-        "Short"    => DisplayMode::Short,
-        "Full"     => DisplayMode::Full,
-        other      => return Err(format!("unknown display mode: {other}")),
-    };
-    state.lock().unwrap().display_mode = m;
-    Ok(())
-}
-
-#[tauri::command]
-pub fn get_display_mode(state: State<SharedState>) -> String {
-    match state.lock().unwrap().display_mode {
-        DisplayMode::IconOnly => "IconOnly".into(),
-        DisplayMode::Short    => "Short".into(),
-        DisplayMode::Full     => "Full".into(),
-    }
 }
 
 // ── Phase 2: Notes commands ─────────────────────────────────────────────────────────

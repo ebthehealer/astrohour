@@ -48,8 +48,6 @@ pub fn run() {
             commands::get_status_text,
             commands::get_moon_phase,
             // Display
-            commands::get_display_mode,
-            commands::set_display_mode,
             commands::set_tray_icon_color,
             commands::get_notifications_enabled,
             commands::set_notifications_enabled,

@@ -8,6 +8,12 @@
 - **Tropical or sidereal.** Settings → Moon Sign Zodiac switches between the
   Western tropical zodiac and the Vedic sidereal zodiac (Lahiri ayanamsa)
 
+### Changed
+- **Removed the Status Bar Display setting.** It never changed the tray, only how
+  much the popup header showed, and the rest of that information is already
+  in the popup. The header now always shows the planet, day/night position,
+  hour times and minutes left. The tray icon and hover tooltip are unchanged
+
 ### Fixed
 - The day and moon header lines up properly: the date sits with the weekday,
   the sun and moon times sit on the right, and the moon block is centred

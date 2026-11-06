@@ -6,7 +6,7 @@
   import {
     initPrefs, getDaySchedule, getCurrentHour, getMoonPhase,
     planetSymbol, signGlyph, phaseEmoji, phaseName, formatTime, minutesUntil, formatCoord,
-    type DaySchedule, type PlanetaryHour, type MoonPhase, type DisplayMode,
+    type DaySchedule, type PlanetaryHour, type MoonPhase,
     type SoundName,
   } from '$lib/api';
   import FirstRun from '$lib/FirstRun.svelte';
@@ -42,7 +42,6 @@
   // Current prefs (mirrored from backend for display)
   let lat = 40.7128;
   let lon = -74.0060;
-  let displayMode: DisplayMode = 'Short';
   let currentTheme = DEFAULT_THEME;
   let trayIconColor = 'auto';
   let notificationsEnabled = true;
@@ -70,7 +69,6 @@
     const prefs = await initPrefs();
     lat = prefs.lat;
     lon = prefs.lon;
-    displayMode = prefs.display_mode as DisplayMode;
     locationSet = prefs.location_set;
     // Apply saved theme (falls back to default if not set)
     trayIconColor = prefs.tray_icon_color ?? 'white';
@@ -187,10 +185,9 @@
   }
 
   // ── Settings saved
-  async function onSettingsSaved(e: CustomEvent<{ lat: number; lon: number; displayMode: DisplayMode }>) {
+  async function onSettingsSaved(e: CustomEvent<{ lat: number; lon: number }>) {
     lat = e.detail.lat;
     lon = e.detail.lon;
-    displayMode = e.detail.displayMode;
     showSettings = false;
     await refresh();
   }
@@ -247,7 +244,7 @@
 
 {:else if showSettings}
   <Settings
-    {lat} {lon} {displayMode} {currentTheme} {trayIconColor}
+    {lat} {lon} {currentTheme} {trayIconColor}
     {notificationsEnabled} {clockFormat} {zodiac}
     {reminderMinutes} {hourSound} {reminderSound} {soundPlayback}
     on:close={() => showSettings = false}
@@ -280,13 +277,7 @@
           role="none">
           <span class="symbol">{planetSymbol(currentHour.planet)}</span>
           <div class="hour-info">
-            {#if displayMode === 'IconOnly'}
-              <div class="hour-name">
-                {currentHour.planet} Hour
-                <span class="day-night">{currentHour.is_day ? '☀' : '🌙'} {currentHour.sequence}/12</span>
-              </div>
-            {:else if displayMode === 'Short'}
-              <div class="hour-name">
+            <div class="hour-name">
                 {currentHour.planet} Hour
                 <span class="day-night">{currentHour.is_day ? 'Day' : 'Night'} {currentHour.sequence} of 12</span>
               </div>
@@ -294,19 +285,6 @@
                 {formatTime(currentHour.start)} → {formatTime(currentHour.end)}
                 <span class="mins">{minsRemaining}m left</span>
               </div>
-            {:else}
-              <div class="hour-name">
-                {currentHour.planet} Hour
-                <span class="day-night">{currentHour.is_day ? 'Day' : 'Night'} {currentHour.sequence} of 12</span>
-              </div>
-              <div class="hour-times">
-                {formatTime(currentHour.start)} → {formatTime(currentHour.end)}
-                <span class="mins">{minsRemaining}m left</span>
-              </div>
-              <div class="hour-extra">
-                {phaseName(moon.phase)} · Moon Day {moon.lunar_day} · {Math.round(moon.illumination*100)}%
-              </div>
-            {/if}
           </div>
         </div>
         <button class="win-btn close" on:click={async () => { await getCurrentWindow().hide(); }} title="Close to tray">&#x2715;</button>
@@ -506,11 +484,6 @@
     margin-top: 3px;
   }
   .mins { color: var(--accent); margin-left: 8px; font-weight: 600; }
-  .hour-extra {
-    font-size: 11px;
-    color: var(--text-muted);
-    margin-top: 2px;
-  }
   /* Close button (frameless window) */
   .win-btn.close {
     background: none;

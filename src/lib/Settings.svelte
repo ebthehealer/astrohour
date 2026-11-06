@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import {
-    setLocation, setDisplayMode, savePrefs,
+    setLocation, savePrefs,
     setAutostart, getAutostart,
     formatCoord,
     setNotificationsEnabled,
@@ -13,7 +13,6 @@
     previewSound,
     REMINDER_CHOICES,
     SOUND_OPTIONS,
-    type DisplayMode,
     type SoundName,
   } from './api';
   import { detectLocation } from './geo';
@@ -22,7 +21,6 @@
 
   export let lat: number;
   export let lon: number;
-  export let displayMode: DisplayMode;
   export let currentTheme: string = 'midnight';
   export let trayIconColor: string = 'white';
   export let notificationsEnabled: boolean = true;
@@ -50,7 +48,7 @@
 
   const dispatch = createEventDispatcher<{
     close: void;
-    saved: { lat: number; lon: number; displayMode: DisplayMode };
+    saved: { lat: number; lon: number };
     themeChange: string;
     trayColorChange: string;
     notificationsChange: boolean;
@@ -64,7 +62,6 @@
   // ── Local form state
   let latStr = lat.toFixed(6);
   let lonStr = lon.toFixed(6);
-  let mode: DisplayMode = displayMode;
   let autostart = false;
   let geoStatus: 'idle' | 'loading' | 'ok' | 'error' = 'idle';
   let geoMsg = '';
@@ -108,7 +105,6 @@
     }
     try {
       await setLocation(newLat, newLon);
-      await setDisplayMode(mode);
       await setAutostart(autostart);
       await setNotificationsEnabled(notificationsEnabled);
       await setClockFormat(clockFormat);
@@ -116,7 +112,7 @@
       await setHourSound(hourSound);
       await setReminderSound(reminderSound);
       await savePrefs();
-      dispatch('saved', { lat: newLat, lon: newLon, displayMode: mode });
+      dispatch('saved', { lat: newLat, lon: newLon });
       dispatch('close');
     } catch (e) {
       saveError = String(e);
@@ -201,20 +197,6 @@
           Current: {formatCoord(lat, 'N', 'S')}, {formatCoord(lon, 'E', 'W')}
         </div>
       {/if}
-    </section>
-
-    <!-- Display mode -->
-    <section>
-      <div class="section-title">Status Bar Display</div>
-      <div class="mode-group">
-        {#each (['IconOnly', 'Short', 'Full'] as const) as m}
-          <label class="mode-option" class:selected={mode === m}>
-            <input type="radio" bind:group={mode} value={m} />
-            <span class="mode-label">{m === 'IconOnly' ? '♃' : m === 'Short' ? '♃ Jupiter Hour' : '♃ Jupiter Hour · 38m'}</span>
-            <span class="mode-name">{m}</span>
-          </label>
-        {/each}
-      </div>
     </section>
 
     <!-- Tray icon color -->

@@ -18,7 +18,6 @@ export interface InitPrefsResult {
   location_set:            boolean;
   lat:                     number;
   lon:                     number;
-  display_mode:            string;
   tray_icon_color:         string;  // "white", "gold", or "#rrggbb"
   notifications_enabled:   boolean;
   clock_format:            string;  // "12" or "24"
@@ -29,8 +28,6 @@ export interface InitPrefsResult {
   /** false when the host has no audio player on PATH */
   sound_playback:          boolean;
 }
-
-export type DisplayMode = 'IconOnly' | 'Short' | 'Full';
 
 export interface PlanetaryHour {
   index: number;
@@ -126,8 +123,6 @@ export const getDaySchedule = (date?: string) =>
   invoke<DaySchedule>('get_day_schedule', { dateStr: date ?? null, utcOffsetMins: utcOffsetMins() });
 export const getStatusText  = ()                    => invoke<string>('get_status_text');
 export const getMoonPhase   = ()                    => invoke<MoonPhase>('get_moon_phase');
-export const getDisplayMode = ()                    => invoke<DisplayMode>('get_display_mode');
-export const setDisplayMode          = (mode: DisplayMode)   => invoke<void>('set_display_mode', { mode });
 export const setTrayIconColor        = (color: string)       => invoke<void>('set_tray_icon_color', { color });
 export const getNotificationsEnabled = ()                    => invoke<boolean>('get_notifications_enabled');
 export const setNotificationsEnabled = (enabled: boolean)   => invoke<void>('set_notifications_enabled', { enabled });
