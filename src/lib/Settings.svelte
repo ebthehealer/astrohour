@@ -34,17 +34,21 @@
 
   // 'auto' = white, letting the DE composite it (correct for SNI on dark panels).
   // 'accent' = resolved at render time from the current theme's --accent variable.
-  const TRAY_COLORS = [
-    { id: 'auto',    label: 'Auto',   hex: '#ffffff', note: 'Follows system panel' },
-    { id: 'accent',  label: 'Accent', hex: '',        note: 'Current theme color'  },
-    { id: 'white',   label: 'White',  hex: '#ffffff', note: '' },
-    { id: 'gold',    label: 'Gold',   hex: '#c8a84b', note: '' },
-    { id: '#aaaaaa', label: 'Grey',   hex: '#aaaaaa', note: '' },
+  const TRAY_PRESETS = [
+    { id: 'auto',  label: 'Auto',  hex: '#ffffff', note: 'Follows system panel' },
+    { id: 'white', label: 'White', hex: '#ffffff', note: '' },
+    { id: 'gold',  label: 'Gold',  hex: '#c8a84b', note: '' },
   ];
 
-  // Resolve the current theme's accent hex for live preview
-  $: accentHex = getComputedStyle(document.documentElement)
-    .getPropertyValue('--accent').trim() || '#c8a84b';
+  // Anything starting with '#' is a user-picked colour ("custom").
+  $: trayIsCustom = trayIconColor.startsWith('#');
+  let customHex = trayIconColor.startsWith('#') ? trayIconColor : '#c8a84b';
+
+  async function pickTrayColor(value: string) {
+    await setTrayIconColor(value);
+    await savePrefs();
+    dispatch('trayColorChange', value);
+  }
 
   const dispatch = createEventDispatcher<{
     close: void;
@@ -203,27 +207,37 @@
     <section>
       <div class="section-title">Tray Icon Color</div>
       <div class="tray-color-row">
-        {#each TRAY_COLORS as c}
-          {@const dotColor = c.id === 'accent' ? accentHex : (c.hex || accentHex)}
-          {@const borderColor = trayIconColor === c.id ? dotColor : 'transparent'}
+        {#each TRAY_PRESETS as c}
           <button
             class="tray-color-btn"
             class:selected={trayIconColor === c.id}
-            style="border-color:{borderColor};"
-            on:click={async () => {
-              const resolved = c.id === 'accent' ? accentHex
-                             : c.id === 'auto'   ? 'auto'
-                             : c.id;
-              await setTrayIconColor(resolved);
-              await savePrefs();
-              dispatch('trayColorChange', c.id);
-            }}
+            style="border-color:{trayIconColor === c.id ? c.hex : 'transparent'};"
+            on:click={() => pickTrayColor(c.id)}
             title={c.note || c.label}
           >
-            <span class="tray-dot" style="background:{dotColor}; box-shadow: 0 0 0 1px rgba(255,255,255,0.15);"></span>
+            <span class="tray-dot" style="background:{c.hex}; box-shadow: 0 0 0 1px rgba(255,255,255,0.15);"></span>
             <span class="tray-label">{c.label}</span>
           </button>
         {/each}
+        <button
+          class="tray-color-btn"
+          class:selected={trayIsCustom}
+          style="border-color:{trayIsCustom ? customHex : 'transparent'};"
+          on:click={() => pickTrayColor(customHex)}
+          title="Pick your own color"
+        >
+          <span class="tray-dot" style="background:{customHex}; box-shadow: 0 0 0 1px rgba(255,255,255,0.15);"></span>
+          <span class="tray-label">Custom</span>
+        </button>
+        {#if trayIsCustom}
+          <input
+            type="color"
+            class="tray-picker"
+            value={customHex}
+            on:change={(e) => { customHex = e.currentTarget.value; pickTrayColor(customHex); }}
+            title="Choose a color"
+          />
+        {/if}
       </div>
     </section>
 
@@ -746,6 +760,10 @@
     border-radius: 50%;
     display: inline-block;
     flex-shrink: 0;
+  }
+  .tray-picker {
+    width: 32px; height: 28px; padding: 0; border: none;
+    background: none; cursor: pointer;
   }
   .tray-label {
     font-size: 11px;

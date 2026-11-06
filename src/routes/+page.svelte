@@ -43,7 +43,7 @@
   let lat = 40.7128;
   let lon = -74.0060;
   let currentTheme = DEFAULT_THEME;
-  let trayIconColor = 'auto';
+  let trayIconColor = 'gold';
   let notificationsEnabled = true;
   let clockFormat = '12';
   let zodiac = 'tropical';
@@ -71,7 +71,7 @@
     lon = prefs.lon;
     locationSet = prefs.location_set;
     // Apply saved theme (falls back to default if not set)
-    trayIconColor = prefs.tray_icon_color ?? 'white';
+    trayIconColor = prefs.tray_icon_color ?? 'gold';
     notificationsEnabled = prefs.notifications_enabled ?? true;
     clockFormat = prefs.clock_format ?? '12';
     zodiac = prefs.zodiac ?? 'tropical';

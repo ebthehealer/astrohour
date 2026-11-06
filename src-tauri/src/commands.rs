@@ -91,7 +91,7 @@ impl Default for AppState {
         Self {
             location: Location { lat: 40.7128, lon: -74.0060 },
             location_set: false,
-            tray_icon_color: "auto".to_string(),
+            tray_icon_color: "gold".to_string(),
             notifications_enabled: true,
             clock_format: "12".to_string(),
             zodiac: "tropical".to_string(),
@@ -244,6 +244,12 @@ pub fn set_tray_icon_color(
     app: tauri::AppHandle,
     color: String,
 ) -> Result<(), String> {
+    let is_hex = color.len() == 7
+        && color.starts_with('#')
+        && color[1..].chars().all(|c| c.is_ascii_hexdigit());
+    if !matches!(color.as_str(), "auto" | "white" | "gold") && !is_hex {
+        return Err(format!("invalid tray colour {color:?}: use auto, white, gold or #rrggbb"));
+    }
     state.lock().unwrap().tray_icon_color = color;
     crate::tray::refresh_tray(&app);
     Ok(())

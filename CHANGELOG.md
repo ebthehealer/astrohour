@@ -9,6 +9,9 @@
   Western tropical zodiac and the Vedic sidereal zodiac (Lahiri ayanamsa)
 
 ### Changed
+- **Tray icon colour is now Auto, White, Gold or Custom.** Custom opens a colour
+  picker. Gold is the default for new installs; saved choices are kept (an old
+  Grey or Accent choice shows as Custom)
 - **Removed the Status Bar Display setting.** It never changed the tray, only how
   much the popup header showed, and the rest of that information is already
   in the popup. The header now always shows the planet, day/night position,
