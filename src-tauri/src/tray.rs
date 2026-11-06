@@ -61,7 +61,13 @@ pub fn setup_tray(app: &mut App) -> tauri::Result<()> {
     }
 
     #[cfg(target_os = "macos")]
-    { builder = builder.icon_as_template(true); }
+    {
+        // Template image: macOS tints it for light/dark menu bars.
+        if let Ok(icon) = tauri::image::Image::from_bytes(include_bytes!("../icons/tray-planet.png")) {
+            builder = builder.icon(icon);
+        }
+        builder = builder.icon_as_template(true);
+    }
 
     #[cfg(target_os = "linux")]
     {
@@ -140,7 +146,8 @@ mod macos_panel {
         // SAFETY: ns_window() returns a valid *mut c_void pointing to an
         // NSWindow on macOS. We only call well-known AppKit methods.
         unsafe {
-            let ns_win = win.ns_window() as *mut AnyObject;
+            let Ok(raw) = win.ns_window() else { return };
+            let ns_win = raw as *mut AnyObject;
             if ns_win.is_null() { return; }
 
             // Float above Spaces (level 25 = kCGStatusWindowLevel)

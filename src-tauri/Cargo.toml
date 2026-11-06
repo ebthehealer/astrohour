@@ -35,17 +35,14 @@ chrono = { version = "0.4", features = ["serde"] }
 chrono-tz = "0.10"
 tauri-plugin-sql = { version = "2.5.0", features = ["sqlite"] }
 
+# PNG decoding for planet icons (all platforms)
+png = "0.17"
+
 # macOS: AppKit NSWindow manipulation
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.5"
 objc2-foundation = { version = "0.2", features = ["NSObject"] }
 
-# PNG decoding for planet icons (both platforms)
-[target.'cfg(target_os = "windows")'.dependencies]
-png = "0.17"
-
-[target.'cfg(target_os = "linux")'.dependencies]
-png = "0.17"
 
 [profile.release]
 codegen-units = 1
