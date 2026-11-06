@@ -11,11 +11,10 @@ Free on Linux and Noctalia with optional donation.
 astrohour/
 ├── src/              SvelteKit frontend (popup UI)
 ├── src-tauri/        Tauri v2 Rust backend
-├── noctalia/         Noctalia v5 Luau plugin
-└── worker/           Cloudflare Worker (Stripe → license key → email)
+└── noctalia/         Noctalia v5 Luau plugin
 ```
 
-`astrohour-core` (pure Rust calculation library) lives in a separate repo.
+The calculation library, [`astrohour-core`](https://github.com/ebthehealer/astrohour-core), lives in a separate repo. Cargo downloads it at a pinned tag, so there is nothing extra to check out.
 
 ## Platforms
 
@@ -34,13 +33,21 @@ astrohour/
 - Rust (stable) + Cargo
 - Node.js 18+ + npm
 - Tauri CLI v2: `cargo install tauri-cli`
-- `astrohour-core` checked out at `../astrohour-core`
 
 ### Desktop app
 ```bash
 npm install
 npm run tauri dev
 ```
+
+### Working on `astrohour-core` alongside the app
+The app pins a released tag of core. To try uncommitted core changes, create a
+`.cargo/config.toml` (git-ignored) in this directory:
+```toml
+[patch."https://github.com/ebthehealer/astrohour-core"]
+astrohour-core = { path = "../astrohour-core" }
+```
+Delete it, tag core, and bump the `tag` in `src-tauri/Cargo.toml` when done.
 
 ### Linux: taskbar / dock icon
 On Wayland the compositor ignores the icon embedded in the window. It resolves

@@ -144,7 +144,8 @@ dependencies = [
 
 [[package]]
 name = "astrohour-core"
-version = "0.1.0"
+version = "0.2.0"
+source = "git+https://github.com/ebthehealer/astrohour-core?tag=v0.2.0#510d7c6fe3fd59f00899c52d0fe473bbb7017a6e"
 dependencies = [
  "chrono",
  "chrono-tz",

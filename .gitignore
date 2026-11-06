@@ -7,3 +7,4 @@ src-tauri/gen/
 *.db
 .vscode/
 tray-icon-ksni/Cargo.lock
+.cargo/
