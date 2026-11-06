@@ -36,7 +36,6 @@ pub fn setup_tray(app: &mut App) -> tauri::Result<()> {
     let mut builder = TrayIconBuilder::with_id("main")
         .menu(&menu)
         .tooltip("AstroHour")
-        .title(&initial_text)   // shown as menu-bar text on macOS
         .on_tray_icon_event(|tray, event| {
             // Let positioner record tray rect for TrayBottomCenter
             let app = tray.app_handle();
@@ -54,6 +53,11 @@ pub fn setup_tray(app: &mut App) -> tauri::Result<()> {
             _ => {}
         });
 
+    // KDE's hover card uses the title as its heading, so keep it everywhere
+    // except macOS, where the title would be drawn as menu-bar text.
+    #[cfg(not(target_os = "macos"))]
+    { builder = builder.title(&initial_text); }
+
     // Platform-specific icon setup
     #[cfg(target_os = "windows")]
     if let Some(icon) = win_icon::render(&initial_text) {
@@ -61,12 +65,8 @@ pub fn setup_tray(app: &mut App) -> tauri::Result<()> {
     }
 
     #[cfg(target_os = "macos")]
-    {
-        // Template image: macOS tints it for light/dark menu bars.
-        if let Ok(icon) = tauri::image::Image::from_bytes(include_bytes!("../icons/tray-planet.png")) {
-            builder = builder.icon(icon);
-        }
-        builder = builder.icon_as_template(true);
+    if let Some((rgba, w, h)) = planet_icon::render_rgba(&initial_text, "gold") {
+        builder = builder.icon(tauri::image::Image::new_owned(rgba, w, h)).icon_as_template(false);
     }
 
     #[cfg(target_os = "linux")]
@@ -317,8 +317,13 @@ pub fn refresh_tray(app: &tauri::AppHandle) {
     #[cfg(target_os = "linux")]
     let icon_bytes: Option<(Vec<u8>, u32, u32)> = linux_icon::render_rgba(&text, &color);
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "macos")]
+    let icon_bytes: Option<(Vec<u8>, u32, u32)> = planet_icon::render_rgba(&text, &color);
+
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     let icon_bytes: Option<(Vec<u8>, u32, u32)> = None;
+    #[cfg(target_os = "macos")]
+    let mac_template = color.trim() == "auto";
 
     let app2    = app.clone();
     let text2   = text.clone();
@@ -329,8 +334,17 @@ pub fn refresh_tray(app: &tauri::AppHandle) {
             return;
         };
 
+        // macOS shows the title as menu-bar text; we want the glyph icon only.
+        #[cfg(not(target_os = "macos"))]
         let _ = tray.set_title(Some(&text2));
         let _ = tray.set_tooltip(Some(&tip2));
+
+        #[cfg(target_os = "macos")]
+        if let Some((rgba, w, h)) = icon_bytes {
+            let _ = tray.set_icon(Some(tauri::image::Image::new_owned(rgba, w, h)));
+            // "Auto" = template image, so macOS tints it for light/dark menu bars.
+            let _ = tray.set_icon_as_template(mac_template);
+        }
 
         #[cfg(target_os = "windows")]
         if let Some(icon) = win_icon::render(&text2) {
