@@ -294,7 +294,7 @@ pub fn refresh_tray(app: &tauri::AppHandle) {
     let (text, color, tooltip) = {
         let state = app.state::<SharedState>();
         let s = state.lock().unwrap();
-        let bar   = status_bar_text(s.location, astrohour_core::types::DisplayMode::IconOnly);
+        let bar   = status_bar_text(s.location, astrohour_core::types::DisplayMode::Short);
         let color = s.tray_icon_color.clone();
 
         // Use the frontend-supplied offset so the tooltip agrees with the window.
@@ -370,11 +370,14 @@ fn tooltip_line(
     )
 }
 
+/// The tray title. KDE's hover card shows this as its heading ("♃ Jupiter Hour"),
+/// with `tooltip_line` beneath it, so it must stay the Short form even though the
+/// icon itself is just the glyph.
 fn initial_tray_text(app: &App) -> String {
     use astrohour_core::display::status_bar_text;
     let state = app.state::<SharedState>();
     let s = state.lock().unwrap();
-    status_bar_text(s.location, astrohour_core::types::DisplayMode::IconOnly)
+    status_bar_text(s.location, astrohour_core::types::DisplayMode::Short)
 }
 
 #[cfg(test)]

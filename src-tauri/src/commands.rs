@@ -503,7 +503,7 @@ pub fn get_day_schedule(
 #[tauri::command]
 pub fn get_status_text(state: State<SharedState>) -> String {
     let s = state.lock().unwrap();
-    status_bar_text(s.location, DisplayMode::IconOnly)
+    status_bar_text(s.location, DisplayMode::Short)
 }
 
 #[tauri::command]
