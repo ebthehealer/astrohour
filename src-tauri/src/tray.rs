@@ -43,8 +43,12 @@ pub fn setup_tray(app: &mut App) -> tauri::Result<()> {
             let app = tray.app_handle();
             on_tray_event(app, &event);
 
+            // macOS (and Windows) send a Click for both press and release;
+            // act on release only, or the popup opens and instantly closes.
             if let TrayIconEvent::Click {
-                button: tauri::tray::MouseButton::Left, ..
+                button: tauri::tray::MouseButton::Left,
+                button_state: tauri::tray::MouseButtonState::Up,
+                ..
             } = event {
                 toggle_window(app);
             }
