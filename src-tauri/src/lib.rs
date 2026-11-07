@@ -27,6 +27,9 @@ pub fn run() {
         )
         .manage(std::sync::Mutex::new(commands::AppState::default()))
         .setup(|app| {
+            // macOS: menu-bar only, no Dock icon
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
             tray::setup_tray(app)?;
             let app_handle = app.handle().clone();
             timer::start_refresh_timer(app_handle);

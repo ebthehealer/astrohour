@@ -35,6 +35,8 @@ pub fn setup_tray(app: &mut App) -> tauri::Result<()> {
 
     let mut builder = TrayIconBuilder::with_id("main")
         .menu(&menu)
+        // macOS: left-click toggles the popup; the menu is on right-click.
+        .show_menu_on_left_click(cfg!(not(target_os = "macos")))
         .tooltip("AstroHour")
         .on_tray_icon_event(|tray, event| {
             // Let positioner record tray rect for TrayBottomCenter
@@ -308,6 +310,10 @@ pub fn refresh_tray(app: &tauri::AppHandle) {
         let hour = crate::commands::current_hour_and_date(s.location, s.utc_offset_mins).0;
         let now  = crate::commands::local_now(s.utc_offset_mins);
         let tip  = tooltip_line(&hour, now, &s.clock_format);
+        // macOS has no separate hover heading (KDE uses the tray title), so
+        // put the heading in the tooltip itself.
+        #[cfg(target_os = "macos")]
+        let tip = format!("{} {} Hour\n{tip}", hour.planet.symbol(), hour.planet.name());
 
         (bar, color, tip)
     };
